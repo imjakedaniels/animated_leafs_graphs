@@ -1,0 +1,91 @@
+---
+title: "metadata"
+author: "Jake"
+date: "03/11/2019"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(rvest)
+```
+
+```{r}
+page_url <- "https://www.cbssports.com/nhl/teams/TOR/toronto-maple-leafs/schedule/regular/"
+html_parse <- read_html(page_url) 
+
+event_info <- html_parse %>%
+  html_table()
+```
+
+#
+
+
+```{r}
+completed_game_schedule <- event_info[[1]]
+
+completed_game_schedule <- completed_game_schedule %>%
+  janitor::clean_names() %>%
+  mutate(date_label = date,
+         date = mdy(date),
+         opp = str_trim(str_remove(opp, ".*\\\n")),
+         leafs = "Toronto",
+         game_choices = str_glue("{leafs} vs. {opp} - {date_label}")) %>%
+  select(game_choices, date, leafs, opp, result, record)
+```
+
+# Process Gamnes to hgappen
+
+```{r}
+regular_season_schedule <- event_info[[2]]
+
+cleaned_schedule <- regular_season_schedule %>%
+  janitor::clean_names()%>%
+  mutate(date_label = date,
+         date = mdy(date),
+         opp = str_trim(str_remove(opp, ".*\\\n")),
+         time_tv = str_extract(time_tv, "[0-9]+:[0-9]+ pm"),
+         time_tv = format(strptime(time_tv, "%I:%M %p"), format="%H:%M:%S"),
+         game_start = ymd_hms(str_glue("{date} {time_tv}")),
+         home_game = ifelse(venue == "Scotiabank Arena", TRUE, FALSE),
+         leafs = "Toronto",
+         game_choices = str_glue("{leafs} vs. {opp} - {date_label}")) %>%
+  select(game_choices, game_start, date, time_tv, date_label, leafs, opp, venue, home_game)
+```
+
+# Team Names
+
+```{r}
+page_url <- "https://en.wikipedia.org/wiki/National_Hockey_League"
+
+html_parse <- read_html(page_url) 
+
+team_info <- html_parse %>%
+  html_nodes("table.wikitable") %>%
+  html_table(fill = TRUE)
+
+team_info <- team_info[[1]]$Team %>%
+  as.data.frame() 
+
+names(team_info) <- "team"
+
+full_team_names <- team_info %>%
+  filter(team != "Eastern Conference" & team != "Western Conference") %>%
+  mutate(team = str_trim(team),
+         team = ifelse(team == "Arizona Coyotes[nb 3]", "Arizona Coyotes", team),
+         team_join = str_extract(team, "^[A-Za-z]+"))
+```
+
+```{r}
+cleaned_schedule <- completed_game_schedule %>%
+  full_join(cleaned_schedule) %>%
+  mutate(team_join = str_extract(opp, "^[A-Za-z]+")) %>%
+  inner_join(full_team_names) %>%
+  select(-opp, -team_join) %>%
+  rename(opp = team)
+
+write_csv(cleaned_schedule, "leafs_game_schedule.csv")
+```
+
+
