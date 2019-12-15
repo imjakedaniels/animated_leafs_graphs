@@ -16,12 +16,12 @@ library(tidyverse) # for the basics
 library(rtweet) # for tweets
 library(lubridate) # for date manipulation
 library(tidytext) # for tokenizing
-library(ggrepel) # for labels
 library(gganimate) # for gifs
 library(rvest) # for scraping html
 library(png) # for image manipulation
 library(grid) # for custom plot manipulation
 library(extrafont) # for nice fonts
+library(ggtext) # for adding colour in plot titles
 loadfonts(device = "pdf", quiet = TRUE)
 theme_set(theme_light(base_size = 12, base_family = "Roboto Condensed"))
 ```
@@ -260,7 +260,7 @@ time_breaks <- hourly_ranges %>%
 
 ```{r chart, dev = 'CairoPDF', dpi = 300, fig.width = 4, fig.height = 3}
 # chart
-base_plot <- five_min_summary  %>%
+base_plot <- five_min_volume  %>%
   inner_join(tml_five_min_top_words, by = "interval") %>%
   ggplot(aes(x = interval, y = tweet_volume)) +
   geom_line(color = "lightblue", size = 2) +
