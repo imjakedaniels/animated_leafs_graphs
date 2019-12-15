@@ -1,0 +1,165 @@
+---
+title: "Gathering data"
+output: html_document
+---
+
+Run this once to get the Leafs' schedule so far, team logos for the background, and full team names so you don't need to fill them in yourself
+
+It scrapes the [CBS Sports Website](https://www.cbssports.com/nhl/teams/TOR/toronto-maple-leafs/schedule/regular/) for the schedule, and wikipedia for the full team names and logos.
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(rvest)
+```
+
+# Get the leafs schedule 
+
+I just used CBS' tables. The caveat is the first time you do this you'll have to wait for the next game until you can merge all the information. I'll explain that as I go.
+
+```{r}
+# gathering the html
+page_url <- "https://www.cbssports.com/nhl/teams/TOR/toronto-maple-leafs/schedule/regular/"
+html_parse <- read_html(page_url) 
+
+# finding the tables that are on the site
+event_info <- html_parse %>%
+  html_table()
+```
+
+## Game results
+
+This is the upper table on the web page. It has the game results. I gotta clean it up a bit.
+
+```{r}
+completed_game_schedule <- event_info[[1]] %>%
+  janitor::clean_names() %>%
+  mutate(date_label = date,
+         date = mdy(date),
+         opp = str_trim(str_remove(opp, ".*\\\n")),
+         leafs = "Toronto",
+         game_choices = str_glue("{leafs} vs. {opp} - {date_label}")) %>%
+  select(game_choices, date, leafs, opp, result, record)
+
+completed_game_schedule
+```
+
+## Remaining games
+
+This is the lower table on the web page. It has the start time of the game and venue.
+
+```{r}
+remaining_season_schedule <- event_info[[2]] %>%
+  janitor::clean_names()%>%
+  mutate(date_label = date,
+         date = mdy(date),
+         opp = str_trim(str_remove(opp, ".*\\\n")),
+         time_tv = str_extract(time_tv, "[0-9]+:[0-9]+ pm"),
+         time_tv = format(strptime(time_tv, "%I:%M %p"), format="%H:%M:%S"),
+         game_start = ymd_hms(str_glue("{date} {time_tv}")),
+         home_game = ifelse(venue == "Scotiabank Arena", TRUE, FALSE),
+         leafs = "Toronto",
+         game_choices = str_glue("{leafs} vs. {opp} - {date_label}"),
+         game_label = ifelse(home_game == FALSE, str_replace(game_choices, "vs\\.", "@"), game_choices)) %>%
+  select(game_choices, game_start, date, time_tv, date_label, leafs, opp, venue, home_game) 
+
+remaining_season_schedule
+```
+
+## Full set preview
+
+When we merge these the first time — they do not overlap. But we will rescrape the results table on the main notebook and full join (keep all the columns) so we will have results and pre-game information stored in one dataset.
+
+```{r}
+completed_game_schedule %>%
+  full_join(remaining_season_schedule)
+```
+
+# Find and create full team names
+
+We only see "Toronto vs. Tampa Bay" in the schedule and I don't want to write out the full team names. So I got a table off [Wikipedia's NHL Page](https://en.wikipedia.org/wiki/National_Hockey_League) to join the full team names in.
+
+```{r}
+page_url <- "https://en.wikipedia.org/wiki/National_Hockey_League"
+
+html_parse <- read_html(page_url) 
+
+team_info <- html_parse %>%
+  html_nodes("table.wikitable") %>%
+  html_table(fill = TRUE)
+
+team_info <- data.frame(team = team_info[[1]]$Team)
+
+full_team_names <- team_info %>%
+  filter(team != "Eastern Conference" & team != "Western Conference") %>%
+  mutate(team = str_trim(team),
+         team = ifelse(team == "Arizona Coyotes[nb 3]", "Arizona Coyotes", team),
+         team_join = str_extract(team, "^[A-Za-z]+"))
+```
+
+# Create the schedule
+
+Join the completed game schedule with the remaining schedule. Extract the team's city name to join full names then drop the former.
+
+```{r}
+cleaned_schedule <- completed_game_schedule %>%
+  full_join(remaining_season_schedule) %>%
+  mutate(team_join = str_extract(opp, "^[A-Za-z]+")) %>%
+  inner_join(full_team_names) %>%
+  select(-opp, -team_join) %>%
+  rename(opp = team)
+
+# write_csv(cleaned_schedule, "leafs_game_schedule.csv")
+```
+
+# Get team images from wikipedia
+
+For the background images. URLs are very similar so I can use the full team names data I have to create urls.
+
+First, make the list of urls to scrape.
+
+```{r}
+# base urls
+url <- "https://en.wikipedia.org/wiki/"
+
+team_list <- full_team_names %>%
+  mutate(team = ifelse(team == "st_louis_blues", "St._Louis_Blues", team),
+         team = str_replace_all(team, " ", "_"))
+
+team_url <- merge(url, team_list$team) %>%
+  as.data.frame() 
+
+team_urls <- paste0(team_url$x, team_url$y)
+```
+
+Then we look on the page for "img" nodes with "220px" which will be the main photo.
+
+```{r}
+# download the images
+download_nhl_image <- function(urls){
+  
+if(dir.exists(here::here("/team_images")) == FALSE) {
+  dir.create(here::here("/team_images"))
+}
+
+  imgsrc <- read_html(urls) %>%
+    html_nodes("img") %>%
+    html_attr('src')
+  
+  images <- data.frame(url = imgsrc)
+  
+  image_location <- images %>%
+    mutate(url = as.character(url),
+           url = str_remove(url, "//?")) %>%
+    filter(str_detect(url, "220px")) %>%
+    head(1)
+  
+  download.file(image_location$url, destfile = here::here(str_glue("team_images/{basename(image_location$url)}")))
+}
+```
+
+Apply this download function to each url:
+
+```{r}
+map(team_urls, download_nhl_image)
+```

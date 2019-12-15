@@ -1,0 +1,186 @@
+---
+title: "Twitter Hockey Scrape"
+output: html_document
+params:
+  game_choice:
+    label: "Choose the game:"
+    value: "Toronto vs. Los Angeles - Nov 5, 2019"
+    input: select
+    choices: !r read_csv("leafs_game_schedule.csv") %>% select(game_choices)
+---
+
+# Packages
+
+```{r}
+library(rtweet)
+library(tidyverse)
+library(lubridate)
+library(tidytext)
+library(ggrepel)
+library(gganimate)
+
+theme_set(theme_minimal())
+```
+
+## Load game schedule
+
+```{r}
+leafs_schedule <- read_csv("leafs_game_schedule.csv")
+
+game_data <- leafs_schedule %>%
+  filter(params$game_choice == game_choices)
+```
+
+## Set fixed vars
+
+```{r}
+opponent <- game_data$opp
+opponent_file_format <- str_replace_all(tolower(opponent), " ", "-")
+
+game_date <- game_data$date
+puck_drop <- game_data$game_start
+
+game_start <- ymd_hms(puck_drop, tz = "America/New_York")
+game_end <- ymd_hms(puck_drop, tz = "America/New_York") + 9900
+min_hour <- ymd_hms(puck_drop, tz = "America/New_York") - 3600
+max_hour <- ymd_hms(puck_drop, tz = "America/New_York") + 14400
+
+unwanted_words <- c("na", "10u", "t.co", "amp", "https", "mike", "10a", "pas","att" )
+
+hourly_ranges <- seq(min_hour, max_hour, by= 3600) %>%
+  as.data.frame() 
+
+names(hourly_ranges) <- "time"
+
+time_breaks <- hourly_ranges %>%
+  mutate(time = format(strptime(time_ranges$time, "%F %H:%M:%S"), format = "%I:%M %p"),
+         time = str_remove(time, "^0"),
+         time = str_remove(time, " "),
+         time = toupper(time))
+```
+
+
+
+# Get tweets and Ssave
+
+```{r}
+search_tweets("#TMLTalk OR #LeafsForever OR Leafs", 
+                          n = 15000, 
+                          include_rts = FALSE, 
+                          retryonratelimit = TRUE) %>%
+  mutate_if(is.list, as.character) %>%
+  write_csv(str_glue("tml_talk-{opponent_file_format}-toronto.csv"))
+
+tml_talk <- read_csv(str_glue("tml_talk-{opponent_file_format}-toronto.csv"))
+```
+
+## Get @ MapleLeafs' timeline
+
+For more regexing the goal announcements in real time instead of game time
+
+```{r}
+get_timeline("@MapleLeafs", n = 100) %>%
+  mutate_if(is.list, as.character) %>%
+  write_csv("leafs_timeline.csv")
+
+leafs_timeline <- read_csv("leafs_timeline.csv")
+```
+
+## Create 10-minute intervals and calc tweet volume
+
+```{r}
+# filter into 10min intervals
+tml_ten_min <- tml_talk %>%
+  filter(created_at > min_hour,
+         created_at < max_hour) %>%
+  mutate(created_at = ymd_hms(created_at),
+         interval = with_tz(round_date(created_at, "10 mins"), 
+                            tzone = "America/New_York"))
+
+# calculate volume and vanity stats
+ten_min_summary <- tml_ten_min %>%
+  group_by(interval) %>%
+  summarize(tweet_volume = n(),
+            geometric_favs = exp(mean(log(favorite_count + 1))) - 1,
+            gemoetric_rts = exp(mean(log(retweet_count + 1))) - 1) %>%
+  ungroup()
+
+# count words per group
+tml_ten_min_tokens <- tml_ten_min %>%
+  unnest_tokens(word, text, token = "tweets") %>%
+  anti_join(stop_words, by = "word") %>%
+  filter(!str_detect(word, "^@"),
+         str_detect(word, "[a-z]+"),
+         !word %in% unwanted_words,
+         nchar(word) > 2) %>%
+  count(word, interval) 
+
+# top words and tf-idf
+tml_ten_min_top_words <- tml_ten_min_tokens %>%
+  filter(n > 5) %>%
+  bind_tf_idf(word, interval, n) %>%
+  arrange(desc(tf_idf)) %>%
+  distinct(interval, .keep_all=T)
+```
+
+## Find all goals on the Leafs' timeline 
+
+```{r}
+# time of leafs goals
+leafs_goals <- leafs_timeline %>%
+  mutate(created_at = ymd_hms(created_at)) %>%
+  filter(str_detect(text, "GOAL")) %>%
+  mutate(text = str_remove(text, "\U0001f6a8 GOAL \U0001f6a8\n\n"), 
+         goal_scorer = str_extract(text, "^[A-Za-z]+")) %>%
+  select(created_at, goal_scorer)
+
+# some regex on opponent's name
+opponent_city <- str_extract(str_glue("{opponent}"), "^[a-zA-Z]+")
+opponent_name <- str_extract(str_glue("{opponent}"), "[a-zA-Z]+$")
+
+# time of opponent goals
+opponent_goals <- leafs_timeline %>%
+  mutate(created_at = ymd_hms(created_at)) %>%
+  filter(str_detect(text, opponent_city) | str_detect(text, opponent_name),
+         str_detect(text, "score")) %>%
+  select(created_at, text)
+```
+
+# Create Volume Graph 
+
+```{r, fig.width = 4, fig.height = 3}
+base_plot <- ten_min_summary  %>%
+  inner_join(tml_ten_min_top_words, by = "interval") %>%
+  ggplot(aes(x = interval, y = tweet_volume)) +
+  scale_y_log10() +
+  geom_line(color = "lightblue", size = 2) +
+  geom_text(aes(label = word), size = 12) +
+  scale_x_datetime(breaks = seq(min_hour, 
+                                max_hour, 
+                                by= 3600), 
+                   labels = time_breaks$time) +
+  labs(title = str_glue("Leafs vs. {opponent}, {game_date}"),
+       x= "",
+       y = "Tweet Volume - log") +
+  geom_vline(xintercept = game_start) +
+  geom_vline(xintercept = game_end) +
+  geom_vline(xintercept = leafs_goals$created_at,
+             linetype = 2,
+             colour = "lightblue") +
+  geom_vline(xintercept = opponent_goals$created_at,
+             linetype = 2,
+             colour = "tomato") +
+  annotate("text", 
+           x = mean(c(game_start, game_end)), 
+           y = 3, 
+           label = "Game Duration", 
+           size = 4) +
+  transition_reveal(interval) +
+  ease_aes('linear')
+```
+
+## Save animation
+
+```{r}
+anim_save(str_glue("leafs-{opponent_file_format}-{game_date}.gif"), base_plot, width = 900, height = 650)
+```
