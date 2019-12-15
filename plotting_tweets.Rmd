@@ -109,7 +109,7 @@ tml_talk <- read_csv(here::here(str_glue("tweets/tml_talk-{opponent_file_format}
 Round the times into the nearest 5 minutes, 
 
 ```{r TF-IDF}
-# Time boundaries
+# time boundaries
 puck_drop <-  ymd_hms(game_data$game_start, tz = "America/New_York")
 min_hour <- puck_drop - 3600
 max_hour <- puck_drop + 14400
@@ -135,7 +135,7 @@ tml_five_min_tokens <- tml_five_min %>%
          nchar(word) > 2) %>%
   count(word, interval) 
 
-# Top words and tf-idf, word must appear 5 times in the interval to qualify
+# top words and tf-idf, word must appear 5 times in the interval to qualify
 tml_five_min_top_words <- tml_five_min_tokens %>%
   filter(n >= 5) %>%
   bind_tf_idf(word, interval, n) %>%
@@ -143,19 +143,20 @@ tml_five_min_top_words <- tml_five_min_tokens %>%
   distinct(interval, .keep_all=T) %>%
   arrange(interval)
 
-# Calculate volume
+# calculate volume
 five_min_volume <- tml_five_min %>%
   group_by(interval) %>%
   summarize(tweet_volume = n()) %>%
   ungroup()
 
+# combine the data
 tml_data <- five_min_volume  %>%
   inner_join(tml_five_min_top_words, by = "interval")
 ```
 
 ## Get @MapleLeafs' timeline
 
-The leafs account tweets in a similar fashion game-to-game. We can regex the approximate game start, game end, and goal announcements with real time stamps instead of using game time.
+The Leafs account tweets in a similar fashion game-to-game. We can regex the approximate game start, game end, and goal announcements with real time stamps instead of using game time.
 
 ```{r getting_leafs_timeline, message = FALSE}
 leafs_timeline <- get_timeline("@MapleLeafs", n = 100) %>%
@@ -207,7 +208,9 @@ if (game_data$win == TRUE) {
 
 # Fetch the logos
 
-I scraped all the team logos from wikipedia and stored them in this folder. We make them transparent by multiplying the RGB values by 0.2.
+I scraped all the team logos from wikipedia and stored them in this folder. That process is in the other notebook. 
+
+I make them transparent by multiplying the RGB values by 0.2.
 
 ```{r get_logo}
 # lookup the team image files
