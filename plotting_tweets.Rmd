@@ -70,7 +70,7 @@ Note: rtweet only goes back 9 days so you can't find tweets earlier than that.
 
 ```{r selecting_game}
 game_data <- leafs_schedule_results %>%
-  filter(game_choices == "Toronto vs. Edmonton - Dec 14, 2019") # pick the game you want the chart for
+  filter(game_choices == "Toronto vs. N.Y. Rangers - Dec 20, 2019") # pick the game you want the chart for
 ```
 
 
@@ -94,7 +94,7 @@ if(dir.exists(here::here("/tweets")) == FALSE) {
 }
 
 # save tweets
-search_tweets("#TMLTalk OR #LeafsForever OR Leafs OR leafs", 
+search_tweets("#TMLTalk OR #LeafsForever OR Leafs OR leaf's OR #goleafsgo", 
               n = 15000, 
               include_rts = FALSE, 
               retryonratelimit = TRUE) %>%
@@ -123,16 +123,25 @@ tml_five_min <- tml_talk %>%
                             tzone = "America/New_York"))
 
 # I'm currently removing tags (@sportsnet), some unwanted_words when I see nonsense, and a minimum of 3 letters long.
-unwanted_words <- c("10u", "t.co", "amp", "https", "10a", "pas", "att", "gonna", "hes", "ml\U0001f4b5", "lieut", "maple")
+unwanted_words <- c("10u", "t.co", "gotta", "#leafsforever", "leafs", "#tmltalk", "hockey", "dont", "amp", "https", "10a", "pas", "att", "gonna", "ive", "game", "hes", "#leafs", "#goleafsgo", "leaf's", "ml\U0001f4b5", "lieut", "maple")
 
 # create word tokens and count per interval
 tml_five_min_tokens <- tml_five_min %>%
   unnest_tokens(word, text, token = "tweets") %>%
-  anti_join(stop_words, by = "word") %>%
   filter(!str_detect(word, "^@"),
-         #str_detect(word, "[a-z]+"),
+         str_detect(word, "[a-z0-9-]+"),
          !word %in% unwanted_words,
          nchar(word) > 2) %>%
+  mutate(word = str_replace_all(word, "[,_;\\.?!]", " "),
+         word = str_replace_all(word, ":$", " "),
+         word = str_replace_all(word, "\\\n", " "),
+         word = str_remove_all(word, '[”"“]'),
+         word = str_remove_all(word, "’s$"),
+         word = str_remove_all(word, "'s$"),
+         word = str_trim(word)) %>%
+  filter(!str_detect(word, "https"),
+         !str_detect(word, "0001")) %>%
+  anti_join(stop_words, by = "word") %>%
   count(word, interval) 
 
 # top words and tf-idf, word must appear 5 times in the interval to qualify
@@ -140,9 +149,9 @@ tml_five_min_top_words <- tml_five_min_tokens %>%
   filter(n >= 5) %>%
   bind_tf_idf(word, interval, n) %>%
   arrange(desc(tf_idf, interval)) %>%
-  distinct(interval, .keep_all=T) %>%
+  distinct(interval, .keep_all = T) %>%
   arrange(interval)
-
+ 
 # calculate volume
 five_min_volume <- tml_five_min %>%
   group_by(interval) %>%
@@ -244,7 +253,7 @@ https://teamcolorcodes.com/nhl-team-color-codes/
 ```{r}
 # colours
 leafs_blue <- "#00205B"
-opp_colour <- "#FF4C00"
+opp_colour <- "#CE1126"
 
 # x-axis Labels
 hourly_ranges <- data.frame(time = seq(min_hour, max_hour, by = 3600))
@@ -267,17 +276,17 @@ base_plot <- five_min_volume  %>%
   geom_text(aes(label = word), size = 14, colour = leafs_blue) +
   geom_vline(xintercept = game_start_tweet$created_at, size = 1.5) +
   geom_vline(xintercept = end_of_game$created_at, size = 1.5) +
-  geom_vline(xintercept = opponent_goals_text$created_at,
-             linetype = 5,
-             size = 0.75,
-             colour = opp_colour) +
   geom_vline(xintercept = leafs_goals$created_at,
              linetype = 5,
              size = 0.75,
              colour = leafs_blue) +
-  scale_y_log10() +
+  geom_vline(xintercept = opponent_goals_text$created_at,
+             linetype = 5,
+             size = 0.75,
+             colour = opp_colour) +
   scale_x_datetime(breaks = seq(min_hour, max_hour, by = 3600), 
                    labels = time_breaks$time) +
+  scale_y_log10() +
   labs(title = str_glue("Toronto Maple Leafs {game_data$location_marker} <b style='color:{opp_colour}'>{opponent}</b><br>Final: {game_data$result}"),
        x= "", y = "Tweet Volume - log") +
   theme(panel.grid.major.x = element_blank(),
@@ -292,12 +301,13 @@ base_plot <- five_min_volume  %>%
   annotation_custom(opponent_logo, 
                     xmin = end_of_game$created_at - 4250, 
                     xmax = end_of_game$created_at - 100, 
-                    ymin=-Inf, ymax=Inf) 
+                    ymin=-Inf, ymax=Inf) +
+  expand_limits(y = 300)
 
 # Add animation
 animated_plot <- base_plot +
   transition_reveal(interval) +
-  ease_aes('linear')
+  ease_aes("linear")
 ```
 
 ## Save animation
