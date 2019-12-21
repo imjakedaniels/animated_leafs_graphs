@@ -18,9 +18,53 @@ I then use `rvest` to scrape websites for a lot of miscellenous information. The
 
 I applied transparency to the images with `png` and added colour to the plot title using `ggtext`. 
 
+Finally, `gganimate` brings it to life with `transition_reveal()`
+
+```
+# chart
+base_plot <- five_min_volume  %>%
+  inner_join(tml_five_min_top_words, by = "interval") %>%
+  ggplot(aes(x = interval, y = tweet_volume)) +
+  geom_line(color = "lightblue", size = 2) +
+  geom_text(aes(label = word), size = 14, colour = leafs_blue) +
+  geom_vline(xintercept = game_start_tweet$created_at, size = 1.5) +
+  geom_vline(xintercept = end_of_game$created_at, size = 1.5) +
+  geom_vline(xintercept = leafs_goals$created_at,
+             linetype = 5,
+             size = 0.75,
+             colour = leafs_blue) +
+  geom_vline(xintercept = opponent_goals_text$created_at,
+             linetype = 5,
+             size = 0.75,
+             colour = opp_colour) +
+  scale_x_datetime(breaks = seq(min_hour, max_hour, by = 3600), 
+                   labels = time_breaks$time) +
+  scale_y_log10() +
+  labs(title = str_glue("Toronto Maple Leafs {game_data$location_marker} <b style='color:{opp_colour}'>{opponent}</b><br>Final: {game_data$result}"),
+       x= "", y = "Tweet Volume - log") +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        plot.title = element_markdown(size = 20, face = "bold", colour = leafs_blue,
+                                      lineheight = 1, vjust = 1)) +
+  annotation_custom(leafs_logo, 
+                    xmin = game_start_tweet$created_at + 4250, 
+                    xmax = game_start_tweet$created_at + 100, 
+                    ymin=-Inf, ymax=Inf) +
+  annotation_custom(opponent_logo, 
+                    xmin = end_of_game$created_at - 4250, 
+                    xmax = end_of_game$created_at - 100, 
+                    ymin=-Inf, ymax=Inf) 
+
+# Add animation
+animated_plot <- base_plot +
+  transition_reveal(interval) +
+  ease_aes('linear')
+```
+
 ## Requirements
 
-You'll need to apply for a Twitter API Token. More details at: https://developer.twitter.com/. 
+You'll need to apply for a Twitter API Token to get tweets in the first place. More details at: https://developer.twitter.com/. 
 
 Please consult [rtweet's vignette](https://rtweet.info/index.html) for more info on setting up the token.
 
