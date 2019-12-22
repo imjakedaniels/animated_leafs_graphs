@@ -6,13 +6,19 @@ I post these animations to [r/Leafs](https://www.reddit.com/r/leafs/comments/e80
 
 ## Details
 
+This project gathers tweets with `rtweet` that contains #TMLTalk, #LeafsForever, Leafs, leaf's, #leafs, or #goleafsgo.
+
+I use `lubridate` to round the tweet's timestamp to the nearest 5 minute interval.
+
+Then I use `tidytext` to turn tweets into a big corpus of words per interval and apply TF-IDF to find the most important word at each.
+=======
 This project gathers tweets with `rtweet` that contains Leafs, #TMLTalk, #LeafsForver, #GoLeafsGo, or Leaf's.
 
 I use `lubridate` to round the tweet's timestamp to the nearest 5 minute interval.
 
 Then I use `tidytext` to tokenize all the tweets into individual words then apply [TF-IDF](https://en.wikipedia.org/wiki/Tf%E2%80%93idf) to find the most important word at each interval.
 
-I calculate the twitter volume at each interval and bind the most important word to this with basic `dplyr`.
+I calculate the twitter volume per interval and bind the most important word to this with basic `dplyr`.
 
 I then use `rvest` to scrape websites for a lot of miscellenous information. The team logos were scraped off Wikipedia, and the Leafs schedule was scraped off CBS Sports.
 
