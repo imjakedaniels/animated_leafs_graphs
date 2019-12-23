@@ -39,14 +39,17 @@ Now we are joining results into remaining games table for complete information. 
 ```{r schedule_data, message = FALSE}
 # get the base schedule
 leafs_schedule <- read_csv("leafs_game_schedule.csv")
+```
 
+
+```{r}
 # scrape new results since you've created the original schedule
 page_url <- "https://www.cbssports.com/nhl/teams/TOR/toronto-maple-leafs/schedule/regular/"
 
 event_info <- read_html(page_url) %>%
   html_table()
 
-# clean it up
+# clean up the table
 completed_game_schedule <- event_info[[1]] %>%
   janitor::clean_names() %>%
   mutate(date_label = date,
@@ -56,7 +59,7 @@ completed_game_schedule <- event_info[[1]] %>%
          game_choices = as.character(str_glue("{leafs} vs. {opp} - {date_label}"))) %>%
   select(game_choices, date, leafs, result, record)
 
-# join results information into the leafs schedule
+# join results table into the original leafs schedule
 leafs_schedule_results <- leafs_schedule %>%
   select(date, game_start, opp, home_game) %>%
   left_join(completed_game_schedule) %>%
@@ -72,8 +75,6 @@ Note: rtweet only goes back 9 days so you can't find tweets earlier than that.
 game_data <- leafs_schedule_results %>%
   filter(game_choices == "Toronto vs. Detroit - Dec 21, 2019") # pick the game you want the chart for
 ```
-
-
 
 # Get tweets and save
 
@@ -94,7 +95,7 @@ if(dir.exists(here::here("/tweets")) == FALSE) {
 }
 
 # save tweets
-search_tweets("#TMLTalk OR #LeafsForever OR Leafs OR leaf's OR #leafs OR #goleafsgo", 
+search_tweets("#TMLTalk OR #LeafsForever OR Leafs OR leaf's OR #leafs OR #goleafsgo OR #mapleleafs", 
               n = 15000, 
               include_rts = FALSE, 
               retryonratelimit = TRUE,
@@ -114,8 +115,11 @@ tmls <- get_timelines(c("domluszczyszyn", "Steve_Dangle",
 "rahef_issa", "_marlanderthews", 
 "LeafFan1917", "TheLeafsIMO", 
 "TheOakLeafs", "TheFlintor", 
-"MarkUkLeaf", "LeafsMaz20"), 
-n = 20)
+"MarkUkLeaf", "LeafsMaz20",
+"karlandtheleafs", "Buds_All_Day",
+"mirtle"), 
+n = 50) %>%
+  select(created_at, text)
 ```
 
 ## Create 10-minute intervals and calc tweet volume
@@ -130,6 +134,8 @@ max_hour <- puck_drop + 14400
 
 # filter into 10min intervals
 tml_five_min <- tml_talk %>%
+  full_join(tmls) %>%
+  select(created_at, text) %>%
   filter(created_at > min_hour + 1800,
          created_at < max_hour - 1800) %>%
   mutate(created_at = ymd_hms(created_at),
@@ -265,9 +271,33 @@ You'll need to look up the opponent's colour each game. Lots of blue teams out t
 https://teamcolorcodes.com/nhl-team-color-codes/
 
 ```{r}
+full_team_names <- read_csv("full_team_names.csv")
+
+team_list <- full_team_names %>% 
+  filter(team  == game_data$opp) %>%
+  mutate(team = ifelse(team == "St. Louis Blues", "St Louis Blues", team),
+         team = tolower(str_replace_all(team, " ", "-"))) 
+  
+team_url <- paste0("https://teamcolorcodes.com/", team_list$team, "-color-codes/")
+```
+
+```{r}
+event_info <- read_html(team_url) %>%
+  html_nodes("body") %>%
+  html_nodes("div") %>%
+  html_text() 
+
+if (str_detect(event_info[9], "BLUE") == TRUE) {
+  opponent_colour <- str_extract(event_info[10], "#[a-zA-Z0-9]+")
+} else {
+  opponent_colour <- str_extract(event_info[9], "#[a-zA-Z0-9]+")
+}
+```
+
+```{r}
 # colours
 leafs_blue <- "#00205B"
-opp_colour <- "#CE1126"
+#opp_colour <- "#CE1126"
 
 # x-axis Labels
 hourly_ranges <- data.frame(time = seq(min_hour, max_hour, by = 3600))
@@ -296,13 +326,13 @@ base_plot <- five_min_volume  %>%
   geom_vline(xintercept = opponent_goals_text$created_at,
              linetype = 5,
              size = 0.75,
-             colour = opp_colour) +
+             colour = opponent_colour) +
     geom_text(aes(label = word), size = 14, colour = leafs_blue) +
 
   scale_x_datetime(breaks = seq(min_hour, max_hour, by = 3600), 
                    labels = time_breaks$time) +
   scale_y_log10() +
-  labs(title = str_glue("Toronto Maple Leafs {game_data$location_marker} <b style='color:{opp_colour}'>{opponent}</b><br>Final: {game_data$result}"),
+  labs(title = str_glue("Toronto Maple Leafs {game_data$location_marker} <b style='color:{opponent_colour}'>{opponent}</b><br>Final: {game_data$result}"),
        x= "", y = "Tweet Volume - log") +
   theme(panel.grid.major.x = element_blank(),
         panel.grid.minor.x = element_blank(),
