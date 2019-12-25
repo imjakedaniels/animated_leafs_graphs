@@ -133,29 +133,31 @@ tmls <- get_timelines(c("domluszczyszyn", "Steve_Dangle",
 Round the times into the nearest 5 minutes, 
 
 ```{r TF-IDF}
-# time boundaries
+# join the timelines of popular leaf accounts into the "leafs" tweet corpus
+tml_full_tweet_set <- tml_talk %>%
+  full_join(tmls) %>%
+  select(created_at, text)
+
+# filter the data accordingly, and remove duplicates
 puck_drop <-  ymd_hms(game_data$game_start, tz = "America/New_York")
 min_hour <- puck_drop - 1800
 max_hour <- puck_drop + 12600
 
-# reducing dataset
-tml_no_duplicates <- tml_talk %>%
-  select(created_at, text) %>%
-  full_join(tmls) %>%
+tml_no_duplicates <- tml_full_tweet_set %>%
   filter(created_at > min_hour,
          created_at < max_hour) %>%
-  group_by(text) %>%
-  mutate(text_count = row_number()) %>%
-  filter(text_count == 1) %>%
+  group_by(text) %>% # count tweets and remove extra entries
+  mutate(tweet_entries = row_number()) %>%
+  filter(tweet_entries == 1) %>%
   ungroup()
 
 #  group into intervals
 tml_five_min <- tml_no_duplicates %>%
   mutate(created_at = ymd_hms(created_at),
-         interval = with_tz(round_date(created_at, "2 mins"), 
+         interval = with_tz(round_date(created_at, "5 mins"), 
                             tzone = "America/New_York"))
 
-# I'm currently removing tags (@sportsnet), some unwanted_words when I see nonsense, and a minimum of 3 letters long.
+# Some unwanted_words and the search terms used
 unwanted_words <- c("10u", "t.co", "gotta", "#leafsforever", "games", "leafs", "#tmltalk", "hockey", "dont", "amp", "https", "10a", "pas", "att", "gonna", "ive", "les", "game", "hes", "#leafs", "#goleafsgo", "leaf's", "ml\U0001f4b5", "lieut", "maple", "vous")
 
 # create word tokens and count per interval
@@ -172,8 +174,8 @@ tml_five_min_tokens <- tml_five_min %>%
          word = str_remove_all(word, "’s$"),
          word = str_remove_all(word, "'s$"),
          word = str_trim(word)) %>%
-  filter(!str_detect(word, "https"),
-         !str_detect(word, "0001")) %>%
+  filter(!str_detect(word, "https"), # remove links
+         !str_detect(word, "0001")) %>% # remove emojis
   anti_join(stop_words, by = "word") %>%
   count(word, interval) 
 
@@ -182,12 +184,10 @@ tml_five_min_top_words <- tml_five_min_tokens %>%
   filter(n >= 3) %>%
   bind_tf_idf(word, interval, n) %>%
   arrange(desc(tf_idf, interval)) %>%
-  distinct(interval, .keep_all = T) %>%
-  arrange(interval)
+  distinct(interval, .keep_all = T) 
 
 # calculate volume
 five_min_volume <- tml_five_min %>% 
-  filter(interval == "2019-12-23 17:28:00")
   group_by(interval) %>%
   summarize(tweet_volume = n()) %>%
   ungroup()
@@ -217,27 +217,28 @@ They also usually say "action" and "under way" in their opening tweet.
 If we win, they always say "LEAFS WIN", otherwise, it's typically "tough" but I just adjust the condition to find the end_of_game tweet accordingly.
 
 ```{r clean_timeline}
-# Time of leafs goals
+# time of leafs goals
 leafs_goals <- leafs_timeline %>%
   filter(str_detect(text, "GOAL"))
 
-# Some regex on opponent's city name (Calgary scores) and team name (Flames score) to help search for their goal announcements
+# Some regex on opponent's city name (Calgary scores) and team name (Flames score) 
+# to help search for opponent goal announcements
 opponent_city <- str_extract(str_glue("{opponent}"), "^[a-zA-Z]+")
 opponent_name <- str_extract(str_glue("{opponent}"), "[a-zA-Z]+$")
 
-# Time of opponent goals
 opponent_goals_text <- leafs_timeline %>%
   filter(str_detect(text, opponent_city) | str_detect(text, opponent_name) | str_detect(text, "Empty net goal"), str_detect(text, "Empty net goal") | str_detect(text, "score")) %>%
   select(created_at, text)
 
-# Usually they say action or under way. Otherwise look at the timeline and find a phrase to extract the game start tweet
+# Usually @MapleLeafs say action, begin, or under way. 
+# Otherwise look at the timeline and find a phrase to extract the game start tweet
 game_start_tweet <- leafs_timeline %>%
   filter(str_detect(text, "action") | str_detect(text, "under way") | str_detect(text, "begin")) %>%
   arrange(created_at) %>%
   head(1) %>%
   select(created_at, text)
 
-# They always say "LEAFS WIN" if they win, and typically mention "tough" in their losses. Adjust if needed.
+# They always say "LEAFS WIN" if they win, and typically mention "Tough" in their losses. Adjust if needed.
 if (game_data$win == TRUE) {
   end_of_game <- leafs_timeline %>%
     filter(str_detect(text, "LEAFS WIN")) %>%
@@ -286,7 +287,6 @@ opponent_logo <- rasterGrob(w, interpolate=TRUE)
 
 ```{r}
 # opponent colour from https://teamcolorcodes.com/nhl-team-color-codes/
-
 team_url <- paste0("https://teamcolorcodes.com/",  tolower(str_replace_all(opponent, " ", "-")), "-color-codes/")
 
 event_info <- read_html(team_url) %>%
@@ -295,10 +295,10 @@ event_info <- read_html(team_url) %>%
   html_text() 
 
 if (str_detect(event_info[9], "BLUE") == TRUE) {
-  # if the first colour is blue, use the alternative
+  # if the first colour is blue, use the alternative hex-code #000000
   opponent_colour <- str_extract(event_info[10], "#[a-zA-Z0-9]+")
 } else {
-  # if not blue, use the first colour
+  # if not blue, use the first hex-code #000000
   opponent_colour <- str_extract(event_info[9], "#[a-zA-Z0-9]+")
 }
 ```
@@ -315,6 +315,7 @@ time_breaks <- hourly_ranges %>%
          time = str_remove(time, " "),
          time = toupper(time))
 ```
+
 
 ```{r chart, dev = 'CairoPDF', dpi = 300, fig.width = 4, fig.height = 3}
 # chart
@@ -333,7 +334,6 @@ base_plot <- five_min_volume  %>%
              size = 0.85,
              colour = opponent_colour) +
   geom_text(aes(label = word), size = 15, colour = leafs_blue) +
-  
   scale_x_datetime(breaks = hourly_ranges$time, 
                    labels = time_breaks$time) +
   scale_y_log10() +
