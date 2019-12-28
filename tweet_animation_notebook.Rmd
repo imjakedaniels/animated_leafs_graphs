@@ -32,6 +32,10 @@ We only need to specify one thing. And the rest will work.
 
 ```{r input}
 game_date <- "2019-12-27"
+
+tweet_keywords <- "#TMLTalk OR #LeafsForever OR @mapleleafs OR Leafs OR #leafs OR #goleafsgo OR #mapleleafs"
+
+"#NHLBruins OR bruins OR @NHLBruins"
 ```
 
 # Game schedule
@@ -42,7 +46,7 @@ Now we are joining results into remaining games table for complete information. 
 
 ```{r schedule_data, message = FALSE}
 # get the base schedule
-leafs_schedule <- read_csv(str_glue("{here::here()}/leafs_schedule/leafs_game_schedule.csv"))
+team_schedule <- read_csv(str_glue("{here::here()}/team_schedules/leafs_game_schedule.csv"))
 ```
 
 ```{r results_data}
@@ -62,7 +66,7 @@ completed_game_schedule <- event_info[[1]] %>%
   select(game_choices, date, result, record)
 
 # join results table into the original leafs schedule
-leafs_schedule_results <- leafs_schedule %>%
+team_schedule_results <- team_schedule %>%
   select(date, game_start, opponent = opp, home_game) %>%
   left_join(completed_game_schedule) %>%
   mutate(location_marker = ifelse(home_game == FALSE, "@", "vs."),
@@ -71,7 +75,7 @@ leafs_schedule_results <- leafs_schedule %>%
 
 ```{r selecting_game}
 # filter for the game of interest
-game_data <- leafs_schedule_results %>%
+game_data <- team_schedule_results %>%
   filter(date == game_date & opponent == "New Jersey Devils")
 ```
 
@@ -99,9 +103,9 @@ if(dir.exists(here::here("/tweets")) == FALSE) {
 }
 
 # save tweets locally
-search_tweets("#TMLTalk OR #LeafsForever OR Leafs OR #leafs OR #goleafsgo OR #mapleleafs", 
-              n = 15000, 
-              include_rts = FALSE, 
+search_tweets(tweet_keywords,
+              n = 15000,
+              include_rts = FALSE,
               retryonratelimit = TRUE,
               type = "recent") %>%
   mutate_if(is.list, as.character) %>%
@@ -366,7 +370,7 @@ time_breaks <- hourly_ranges %>%
 ```
 
 
-```{r chart, dev = 'CairoPDF', dpi = 300, fig.width = 4, fig.height = 3}
+```{r chart, dev = 'CairoPNG', dpi = 300, fig.width = 4, fig.height = 3}
 # chart
 base_plot <- tml_top_words  %>%
   inner_join(tml_tweet_volume, by = "interval") %>%
@@ -422,7 +426,6 @@ if(dir.exists(here::here("/animations")) == FALSE) {
 anim_save(animated_plot, 
           fps = 20,  duration = 35,
           width = 1024, height = 512,
-          type = "cairo",
           filename = str_glue("animations/leafs-{opponent_file_format}-{game_data$date}.gif"), )
 
 beepr::beep()
