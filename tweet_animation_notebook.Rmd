@@ -1,5 +1,5 @@
 ---
-title: "Twitter hockey scrape"
+title: "Animating Twitter Discussions about the Leafs"
 output: html_document
 ---
 
