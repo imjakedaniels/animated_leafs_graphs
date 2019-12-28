@@ -356,7 +356,7 @@ if (str_detect(event_info[9], "BLUE") == TRUE) {
 
 ```{r}
 # x-axis Labels
-hourly_ranges <- data.frame(time = seq(min_hour, max_hour, by = 3600))
+hourly_ranges <- data.frame(time = seq(min_hour + 1800, max_hour + 1800, by = 3600))
 
 time_breaks <- hourly_ranges %>%
   mutate(time = format(strptime(hourly_ranges$time, "%F %H:%M:%S"), format = "%I:%M %p"),
@@ -371,6 +371,14 @@ time_breaks <- hourly_ranges %>%
 base_plot <- tml_top_words  %>%
   inner_join(tml_tweet_volume, by = "interval") %>%
   ggplot(aes(x = interval, y = tweet_volume)) +
+  annotation_custom(leafs_logo, 
+                    xmin = game_start_tweet$created_at + 4250, 
+                    xmax = game_start_tweet$created_at + 100, 
+                    ymin=-Inf, ymax=Inf) +
+  annotation_custom(opponent_logo, 
+                    xmin = end_of_game$created_at - 4250, 
+                    xmax = end_of_game$created_at - 100, 
+                    ymin=-Inf, ymax=Inf) +
   geom_line(color = "lightblue", size = 2) +
   geom_vline(xintercept = game_start_tweet$created_at, size = 1.5) +
   geom_vline(xintercept = end_of_game$created_at, size = 1.5) +
@@ -379,7 +387,7 @@ base_plot <- tml_top_words  %>%
              size = 0.85,
              colour = leafs_blue) +
   geom_vline(xintercept = opponent_goals_text$created_at,
-             linetype = 5,
+             linetype = 2,
              size = 0.85,
              colour = opponent_colour) +
   geom_text(aes(label = word), size = 15, colour = leafs_blue) +
@@ -393,14 +401,6 @@ base_plot <- tml_top_words  %>%
         panel.grid.minor.y = element_blank(),
         plot.title = element_markdown(size = 20, face = "bold", colour = leafs_blue,
                                       lineheight = 1, vjust = 1)) +
-  annotation_custom(leafs_logo, 
-                    xmin = game_start_tweet$created_at + 4250, 
-                    xmax = game_start_tweet$created_at + 100, 
-                    ymin=-Inf, ymax=Inf) +
-  annotation_custom(opponent_logo, 
-                    xmin = end_of_game$created_at - 4250, 
-                    xmax = end_of_game$created_at - 100, 
-                    ymin=-Inf, ymax=Inf) +
   expand_limits(y = 300)
 ```
 
