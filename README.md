@@ -8,7 +8,7 @@ I post these animations to [r/Leafs](https://www.reddit.com/r/leafs/comments/e80
 
 This project gathers tweets with `rtweet` that contains #TMLTalk, #LeafsForever, Leafs, leaf's, #leafs, or #goleafsgo.
 
-I use `lubridate` to round the tweet's timestamp to the nearest 5 minute interval.
+I use `lubridate` to round the tweet's timestamp into 2 minute intervals.
 
 Then I use `tidytext` to tokenize all the tweets into individual words then apply [TF-IDF](https://en.wikipedia.org/wiki/Tf%E2%80%93idf) to find the most important word at each interval.
 
