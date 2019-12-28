@@ -37,9 +37,8 @@ completed_game_schedule <- event_info[[1]] %>%
   mutate(date_label = date,
          date = mdy(date),
          opp = str_trim(str_remove(opp, ".*\\\n")),
-         leafs = "Toronto",
-         game_choices = str_glue("{leafs} vs. {opp} - {date_label}")) %>%
-  select(game_choices, date, leafs, opp, result, record)
+         game_choices = str_glue("Toronto vs. {opp} - {date_label}")) %>%
+  select(game_choices, date, opp, result, record)
 
 completed_game_schedule
 ```
@@ -82,9 +81,7 @@ We only see "Toronto vs. Tampa Bay" in the schedule and I don't want to write ou
 ```{r}
 page_url <- "https://en.wikipedia.org/wiki/National_Hockey_League"
 
-html_parse <- read_html(page_url) 
-
-team_info <- html_parse %>%
+team_info <- read_html(page_url) %>%
   html_nodes("table.wikitable") %>%
   html_table(fill = TRUE)
 
