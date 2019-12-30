@@ -31,11 +31,9 @@ We only need to specify one thing. And the rest will work.
 ...when was the game played?
 
 ```{r input}
-game_date <- "2019-12-27"
+game_date <- "2019-12-28"
 
-tweet_keywords <- "#TMLTalk OR #LeafsForever OR @mapleleafs OR Leafs OR #leafs OR #goleafsgo OR #mapleleafs"
-
-"#NHLBruins OR bruins OR @NHLBruins"
+tweet_keywords <- "#TMLTalk OR #LeafsForever OR @MapleLeafs OR Leafs OR #leafs OR #goleafsgo OR #mapleleafs"
 ```
 
 # Game schedule
@@ -76,7 +74,7 @@ team_schedule_results <- team_schedule %>%
 ```{r selecting_game}
 # filter for the game of interest
 game_data <- team_schedule_results %>%
-  filter(date == game_date & opponent == "New Jersey Devils")
+  filter(date == game_date)
 ```
 
 ```{r opponent_data}
@@ -189,7 +187,7 @@ tml_tweet_intervals <- tml_game_tweets_unique %>%
 
 ```{r}
 # Some unwanted_words and the search terms used
-unwanted_words <- c("10u", "t.co", "gotta", "#leafsforever", "games", "leafs", "#tmltalk", "hockey", "dont", "amp", "https", "10a", "pas", "att", "gonna", "ive", "les", "game", "hes", "#leafs", "#goleafsgo", "leaf's", "ml\U0001f4b5", "lieut", "maple", "vous")
+unwanted_words <- c("10u", "t.co", "gotta", "#leafsforever", "games", "leafs", "#tmltalk", "hockey", "dont", "amp", "https", "10a", "pas", "att", "gonna", "ive", "les", "game", "hes", "#leafs", "#goleafsgo", "leaf's", "ml\U0001f4b5", "lieut", "maple", "vous", "weve", "ill", "theyre")
 ```
 
 ## Turn tweets into word tokens
@@ -200,7 +198,6 @@ tml_two_min_tokens <- tml_tweet_intervals %>%
   unnest_tokens(word, text, token = "tweets") %>%
   filter(!str_detect(word, "^@"),
          str_detect(word, "[a-z0-9-:]+"),
-         !word %in% unwanted_words,
          nchar(word) > 2) %>%
   mutate(word = str_replace_all(word, "[,_;\\.?!]", " "),
          word = str_replace_all(word, ":$", " "),
@@ -210,7 +207,8 @@ tml_two_min_tokens <- tml_tweet_intervals %>%
          word = str_remove_all(word, "'s$"),
          word = str_trim(word)) %>%
   filter(!str_detect(word, "https"), # remove links
-         !str_detect(word, "0001")) %>% # remove emojis
+         !str_detect(word, "0001"), # remove emojis
+         !word %in% unwanted_words) %>%
   anti_join(stop_words, by = "word") %>% # removes noisy words
   count(word, interval) 
 ```
@@ -220,10 +218,11 @@ tml_two_min_tokens <- tml_tweet_intervals %>%
 ```{r}
 # top words and tf-idf, word must appear 3 times in the interval to qualify
 tml_top_words <- tml_two_min_tokens %>%
-  filter(n >= 3) %>%
   bind_tf_idf(word, interval, n) %>%
+  filter(n >= 3) %>%
   arrange(desc(tf_idf, interval)) %>%
-  distinct(interval, .keep_all = T)
+  distinct(interval, .keep_all = T) %>%
+  arrange(interval)
 ```
 
 ## Tweet Volume
@@ -264,7 +263,7 @@ opponent_city <- str_extract(str_glue("{opponent}"), "^[a-zA-Z]+")
 opponent_name <- str_extract(str_glue("{opponent}"), "[a-zA-Z]+$")
 
 opponent_goals_text <- leafs_timeline %>%
-  filter(str_detect(text, opponent_city) | str_detect(text, opponent_name) | str_detect(text, "Empty net goal"), str_detect(text, "Empty net goal") | str_detect(text, "score")) %>%
+  filter(str_detect(text, opponent_city) | str_detect(text,"pick up a point") |str_detect(text, opponent_name) | str_detect(text, "Empty net goal"), str_detect(text, "Empty net goal") | str_detect(text,"back") | str_detect(text, "score")) %>%
   select(created_at, text)
 ```
 
@@ -290,8 +289,9 @@ if (game_data$win == TRUE) {
     select(created_at, text) 
 } else {
   end_of_game <- leafs_timeline %>%
-    filter(str_detect(text, "(Tough)")) %>%
-    select(created_at, text) 
+    filter(str_detect(text, "(Battled back)")) %>%
+    select(created_at, text) %>%
+    head(1)
 }
 ```
 
@@ -331,7 +331,6 @@ m <- readPNG(opponent_image$path)
 # make transparent
 w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * 0.2), nrow=dim(m)[1]) # This makes it transparent - 0.2 is alpha
 opponent_logo <- rasterGrob(w, interpolate=TRUE)
-
 ```
 
 # Lookup opponent's colour 
@@ -347,7 +346,7 @@ page_text <- read_html(team_url) %>%
   html_text() 
 
 # find the hexcodes, but don't use blue ones
-if (str_detect(event_info[9], "BLUE") == TRUE) {
+if (str_detect(page_text[9], "BLUE") == TRUE) {
   # if the first colour is blue, use the alternative hex-code #000000
   opponent_colour <- str_extract(page_text[10], "#[a-zA-Z0-9]+")
 } else {
@@ -372,17 +371,9 @@ time_breaks <- hourly_ranges %>%
 
 ```{r chart, dev = 'CairoPNG', dpi = 300, fig.width = 4, fig.height = 3}
 # chart
-base_plot <- tml_top_words  %>%
-  inner_join(tml_tweet_volume, by = "interval") %>%
+base_plot <- tml_tweet_volume  %>%
+  inner_join(tml_top_words, by = "interval") %>%
   ggplot(aes(x = interval, y = tweet_volume)) +
-  annotation_custom(leafs_logo, 
-                    xmin = game_start_tweet$created_at + 4250, 
-                    xmax = game_start_tweet$created_at + 100, 
-                    ymin=-Inf, ymax=Inf) +
-  annotation_custom(opponent_logo, 
-                    xmin = end_of_game$created_at - 4250, 
-                    xmax = end_of_game$created_at - 100, 
-                    ymin=-Inf, ymax=Inf) +
   geom_line(color = "lightblue", size = 2) +
   geom_vline(xintercept = game_start_tweet$created_at, size = 1.5) +
   geom_vline(xintercept = end_of_game$created_at, size = 1.5) +
@@ -405,6 +396,14 @@ base_plot <- tml_top_words  %>%
         panel.grid.minor.y = element_blank(),
         plot.title = element_markdown(size = 20, face = "bold", colour = leafs_blue,
                                       lineheight = 1, vjust = 1)) +
+  annotation_custom(leafs_logo, 
+                    xmin = game_start_tweet$created_at + 4250, 
+                    xmax = game_start_tweet$created_at + 100, 
+                    ymin=-Inf, ymax=Inf) +
+  annotation_custom(opponent_logo, 
+                    xmin = end_of_game$created_at - 4250, 
+                    xmax = end_of_game$created_at - 100, 
+                    ymin=-Inf, ymax=Inf) +
   expand_limits(y = 300)
 ```
 
@@ -426,7 +425,8 @@ if(dir.exists(here::here("/animations")) == FALSE) {
 anim_save(animated_plot, 
           fps = 20,  duration = 35,
           width = 1024, height = 512,
-          filename = str_glue("animations/leafs-{opponent_file_format}-{game_data$date}.gif"), )
+          type = "cairo",
+          filename = str_glue("animations/leafs-{opponent_file_format}-{game_data$date}.gif"))
 
 beepr::beep()
 ```
