@@ -263,7 +263,7 @@ opponent_city <- str_extract(str_glue("{opponent}"), "^[a-zA-Z]+")
 opponent_name <- str_extract(str_glue("{opponent}"), "[a-zA-Z]+$")
 
 opponent_goals_text <- leafs_timeline %>%
-  filter(str_detect(text, opponent_city) | str_detect(text,"pick up a point") |str_detect(text, opponent_name) | str_detect(text, "Empty net goal"), str_detect(text, "Empty net goal") | str_detect(text,"back") | str_detect(text, "score")) %>%
+  filter(str_detect(text, opponent_city) | str_detect(text, opponent_name) | str_detect(text, "Empty net goal"), str_detect(text, "Empty net goal") | str_detect(text, "score")) %>%
   select(created_at, text)
 ```
 
@@ -289,7 +289,7 @@ if (game_data$win == TRUE) {
     select(created_at, text) 
 } else {
   end_of_game <- leafs_timeline %>%
-    filter(str_detect(text, "(Battled back)")) %>%
+    filter(str_detect(text, "(Tough)")) %>%
     select(created_at, text) %>%
     head(1)
 }
