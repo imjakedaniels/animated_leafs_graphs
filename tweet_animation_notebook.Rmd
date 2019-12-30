@@ -20,30 +20,35 @@ loadfonts(device = "pdf", quiet = TRUE)
 theme_set(theme_light(base_size = 20, base_family = "Roboto Condensed"))
 ```
 
-You'll also need to apply for a Twitter API Token. More details at: https://developer.twitter.com/. 
+You'll also need to apply for a Twitter API Token. More details at: [https://developer.twitter.com/](https://developer.twitter.com/).
 
 Please consult [rtweet's vignette](https://rtweet.info/index.html) for more info on setting up the token.
 
 # Input
 
-We only need to specify one thing. And the rest will work. 
-
-...when was the game played?
+A few inputs are required.
 
 ```{r input}
+# YYYY-MM-DD
 game_date <- "2019-12-28"
 
+# What should the tweets contain?
 tweet_keywords <- "#TMLTalk OR #LeafsForever OR @MapleLeafs OR Leafs OR #leafs OR #goleafsgo OR #mapleleafs"
 ```
 
 # Game schedule
 
-First, we created the base schedule of the Leafs in the scraping_hockey_data.Rmd notebook by full joining two tables (results and remaining games) at [CBS Sports Websites](https://www.cbssports.com/nhl/teams/TOR/toronto-maple-leafs/schedule/regular/). 
+First, we created the base schedule of the Leafs in the scraping_hockey_data.Rmd notebook.
 
-Now we are joining results into remaining games table for complete information. You'd best look through the other notebook for a clearer understanding, or check the website to see how the tables aren't perfectly matched.
+We join two tables (results and remaining games) from [CBS Sports Websites](https://www.cbssports.com/nhl/teams/TOR/toronto-maple-leafs/schedule/regular/). 
+
+Now we are joining results into remaining games table for complete information. 
+
+You'd best look through the other notebook for a clearer understanding.
+Or check the website above to see how the tables aren't perfectly matched.
 
 ```{r schedule_data, message = FALSE}
-# get the base schedule
+# get the base schedule from the repo
 team_schedule <- read_csv(str_glue("{here::here()}/team_schedules/leafs_game_schedule.csv"))
 ```
 
@@ -63,7 +68,7 @@ completed_game_schedule <- event_info[[1]] %>%
          game_choices = as.character(str_glue("Toronto vs. {opponent} - {date_label}"))) %>%
   select(game_choices, date, result, record)
 
-# join results table into the original leafs schedule
+# join results table into the original leafs schedule and determine win and game location
 team_schedule_results <- team_schedule %>%
   select(date, game_start, opponent = opp, home_game) %>%
   left_join(completed_game_schedule) %>%
@@ -107,9 +112,13 @@ search_tweets(tweet_keywords,
               retryonratelimit = TRUE,
               type = "recent") %>%
   mutate_if(is.list, as.character) %>%
-  write_csv(here::here(str_glue("tweets/tml_talk-{opponent_file_format}-toronto-{game_data$date}.csv")))
+  write_csv(
+    here::here(str_glue("tweets/tml_talk-{opponent_file_format}-toronto-{game_date}.csv"))
+  )
 
-tml_talk <- read_csv(here::here(str_glue("tweets/tml_talk-{opponent_file_format}-toronto-{game_data$date}.csv")))
+tml_talk <- read_csv(
+  here::here(str_glue("tweets/tml_talk-{opponent_file_format}-toronto-{game_date}.csv"))
+)
 ```
 
 ## Look at influencers who tweet about the leafs but may not mention any keywords specifically
@@ -187,7 +196,9 @@ tml_tweet_intervals <- tml_game_tweets_unique %>%
 
 ```{r}
 # Some unwanted_words and the search terms used
-unwanted_words <- c("10u", "t.co", "gotta", "#leafsforever", "games", "leafs", "#tmltalk", "hockey", "dont", "amp", "https", "10a", "pas", "att", "gonna", "ive", "les", "game", "hes", "#leafs", "#goleafsgo", "leaf's", "ml\U0001f4b5", "lieut", "maple", "vous", "weve", "ill", "theyre")
+unwanted_words <- c("10u", "t.co", "gotta", "#leafsforever", "games", "leafs", "#tmltalk", "hockey", "dont", 
+                    "amp", "https", "10a", "pas", "att", "gonna", "ive", "les", "game", "hes", "#leafs", 
+                    "#goleafsgo", "leaf's", "ml\U0001f4b5", "lieut", "maple", "vous", "weve", "ill", "theyre")
 ```
 
 ## Turn tweets into word tokens
@@ -197,8 +208,7 @@ unwanted_words <- c("10u", "t.co", "gotta", "#leafsforever", "games", "leafs", "
 tml_two_min_tokens <- tml_tweet_intervals %>%
   unnest_tokens(word, text, token = "tweets") %>%
   filter(!str_detect(word, "^@"),
-         str_detect(word, "[a-z0-9-:]+"),
-         nchar(word) > 2) %>%
+         str_detect(word, "[a-z0-9-:]+")) %>%
   mutate(word = str_replace_all(word, "[,_;\\.?!]", " "),
          word = str_replace_all(word, ":$", " "),
          word = str_replace_all(word, "\\\n", " "),
@@ -208,7 +218,8 @@ tml_two_min_tokens <- tml_tweet_intervals %>%
          word = str_trim(word)) %>%
   filter(!str_detect(word, "https"), # remove links
          !str_detect(word, "0001"), # remove emojis
-         !word %in% unwanted_words) %>%
+         !word %in% unwanted_words, # drop noisy words above
+         nchar(word) > 2) %>%
   anti_join(stop_words, by = "word") %>% # removes noisy words
   count(word, interval) 
 ```
@@ -237,7 +248,10 @@ tml_tweet_volume <- tml_tweet_intervals %>%
 
 # Get @MapleLeafs' timeline
 
-The Leafs account tweets in a similar fashion game-to-game. We can reliably regex the approximate game start, game end, and goal announcements with real time stamps instead of using game time.
+The Leafs account tweets in a similar fashion game-to-game. 
+
+We can reliably regex the approximate game start, game end, and goal announcements 
+with real time stamps instead of using game time.
 
 ```{r getting_leafs_timeline, message = FALSE}
 leafs_timeline <- get_timeline("@MapleLeafs", n = 100) %>%
@@ -250,20 +264,26 @@ leafs_timeline <- get_timeline("@MapleLeafs", n = 100) %>%
 
 ## Goals
 
-@ MapleLeafs always tweet "GOAL" when they score. And often mention the city/team name of an opponent when they score. But I also notice they don't mention the opponent's name and just tweet "Empty net goal" when an opponent does this so I've added that.
+@ MapleLeafs always tweet "GOAL" when they score.
+
+They very often mention the city/team name of an opponent when they score. 
+
+But I also notice they don't mention the opponent's name and just tweet "Empty net goal".
 
 ```{r find_goals}
 # time of leafs goals
 leafs_goals <- leafs_timeline %>%
   filter(str_detect(text, "GOAL"))
 
-# Some regex on opponent's city name (Calgary scores) and team name (Flames score) 
+# some regex on opponent's city name (Calgary scores) and team name (Flames score) 
 # to help search for opponent goal announcements
 opponent_city <- str_extract(str_glue("{opponent}"), "^[a-zA-Z]+")
 opponent_name <- str_extract(str_glue("{opponent}"), "[a-zA-Z]+$")
 
 opponent_goals_text <- leafs_timeline %>%
-  filter(str_detect(text, opponent_city) | str_detect(text, opponent_name) | str_detect(text, "Empty net goal"), str_detect(text, "Empty net goal") | str_detect(text, "score")) %>%
+  filter(
+    str_detect(text, opponent_city) | str_detect(text, opponent_name) | str_detect(text, "Empty net goal"), 
+    str_detect(text, "score") | str_detect(text, "Empty net goal")) %>%
   select(created_at, text)
 ```
 
@@ -271,7 +291,9 @@ opponent_goals_text <- leafs_timeline %>%
 
 They also usually say "action" or "under way" or "begin" in their opening tweet.
 
-If we win, they always say "LEAFS WIN", otherwise, it's typically "tough" but I just adjust the condition to find the end_of_game tweet accordingly.
+If we win, they always say "LEAFS WIN".
+
+Otherwise, there's a mixute of other phrases when we lose. Adjust when needed.
 
 ```{r game_start_and_end}
 # Usually @MapleLeafs say action, begin, or under way. 
@@ -282,14 +304,15 @@ game_start_tweet <- leafs_timeline %>%
   head(1) %>%
   select(created_at, text)
 
-# They always say "LEAFS WIN" if they win, and typically mention "Tough" in their losses. Adjust if needed.
+# They always say "LEAFS WIN" if they win, and a mixute of other phrases when we lose. Adjust when needed.
+# You can even filter for the timestamp to pick a specific one.
 if (game_data$win == TRUE) {
   end_of_game <- leafs_timeline %>%
     filter(str_detect(text, "LEAFS WIN")) %>%
     select(created_at, text) 
 } else {
   end_of_game <- leafs_timeline %>%
-    filter(str_detect(text, "(Tough)")) %>%
+    filter(str_detect(text, "tough") | str_detect(text, "battled")) %>%
     select(created_at, text) %>%
     head(1)
 }
@@ -297,7 +320,7 @@ if (game_data$win == TRUE) {
 
 # Fetch the logos
 
-I scraped all the team logos from Wikipedia. Code for that in the other notebook.
+I scraped all the team logos from Wikipedia.
 
 I make them transparent by multiplying the RGB values by 0.2.
 
@@ -361,6 +384,7 @@ if (str_detect(page_text[9], "BLUE") == TRUE) {
 # x-axis Labels
 hourly_ranges <- data.frame(time = seq(min_hour + 1800, max_hour + 1800, by = 3600))
 
+# convert into human readable
 time_breaks <- hourly_ranges %>%
   mutate(time = format(strptime(hourly_ranges$time, "%F %H:%M:%S"), format = "%I:%M %p"),
          time = str_remove(time, "^0"),
