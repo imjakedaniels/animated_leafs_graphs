@@ -1,3 +1,4 @@
+
 # Animating Twitter Chatter throughout the course of a Leafs Game
 
 [![Example](animations/leafs-st.-louis-blues-2019-12-07.gif)](https://www.reddit.com/r/leafs/comments/e80uu4/twitter_chatter_leafs_vs_blues_december_07_2019/)
@@ -6,24 +7,23 @@ I post these animations to [r/Leafs](https://www.reddit.com/r/leafs/comments/e80
 
 ## Details
 
-This project gathers tweets with `rtweet` that contains #TMLTalk, #LeafsForever, Leafs, leaf's, #leafs, or #goleafsgo.
+This project gathers tweets that contain #TMLTalk, #LeafsForever, @MapleLeafs, Leafs, #leafs, or #goleafsgo. using {rtweet}.
+I also scrape about 40 user timelines that are active Leaf fans who don't always using these tags always to add more meaningful signal.
 
-I use `lubridate` to round the tweet's timestamp into 2 minute intervals.
+Then I use {lubridate} to group tweets into 2 minute intervals. I calculate tweet volume here based on tweets per 2 mins.
 
-Then I use `tidytext` to tokenize all the tweets into individual words then apply [TF-IDF](https://en.wikipedia.org/wiki/Tf%E2%80%93idf) to find the most important word at each interval.
+I use {tidytext} to tokenize all the tweets into individual words then apply [TF-IDF](https://en.wikipedia.org/wiki/Tf%E2%80%93idf) to find the most important word at each interval.
 
-I calculate the twitter volume per interval and bind the most important word to this with basic `dplyr`.
+I finally bind the most important word to the twitter volume per interval.
 
-I then use `rvest` to scrape websites for a lot of miscellenous information. The team logos were scraped off Wikipedia, and the Leafs schedule was scraped off CBS Sports.
+The team logos were scraped off Wikipedia, and the Leafs schedule was scraped off CBS Sports using {rvest}.
 
-I applied transparency to the images with `png` and added colour to the plot title using `ggtext`. 
-
-Finally, `gganimate` brings it to life with `transition_reveal()`
+Finally, {gganimate} brings it to life with `transition_reveal()`
 
 ```
 # chart
-base_plot <- five_min_volume  %>%
-  inner_join(tml_five_min_top_words, by = "interval") %>%
+base_plot <- two_min_volume  %>%
+  inner_join(tml_two_min_top_words, by = "interval") %>%
   ggplot(aes(x = interval, y = tweet_volume)) +
   geom_line(color = "lightblue", size = 2) +
   geom_text(aes(label = word), size = 14, colour = leafs_blue) +
