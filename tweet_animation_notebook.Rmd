@@ -16,7 +16,7 @@ library(png) # for image manipulation
 library(grid) # for custom plot manipulation
 library(extrafont) # for nice fonts
 library(ggtext) # for adding colour in plot titles
-loadfonts(device = "pdf", quiet = TRUE)
+loadfonts(device = "win")
 theme_set(theme_light(base_size = 20, base_family = "Roboto Condensed"))
 ```
 
@@ -30,11 +30,10 @@ A few inputs are required.
 
 ```{r input}
 # YYYY-MM-DD
-game_date <- "2020-02-22"
+game_date <- "2020-03-03"
 
 # What should the tweets contain?
-tweet_keywords <- "#TMLTalk OR #LeafsForever OR @MapleLeafs leafs OR #leafs OR #GoLeafsGo OR #mapleleafs"
-
+tweet_keywords <- "#TMLTalk OR #LeafsForever OR @MapleLeafs OR leafs OR #leafs OR #GoLeafsGo OR #mapleleafs"
 ```
 
 # Game schedule
@@ -101,6 +100,7 @@ Scrape all tweets from that day that include TMLTalk or LeafsForever or Leafs. T
 
 There's a 15 minute delay every 18000 tweets if you want to get more.
 
+
 ```{r leafs_tweets, message = FALSE}
 # create a folder for the datasets
 if(dir.exists(here::here("/tweets")) == FALSE) {
@@ -108,19 +108,20 @@ if(dir.exists(here::here("/tweets")) == FALSE) {
 }
 
 since <- as.Date(game_date)
-until <- since + 1
+until <- since + 2
 
-# save tweets locally
-search_tweets(tweet_keywords,
-              since = since,
-              until = until,
-              include_rts = FALSE,
-              retryonratelimit = TRUE,
-              type = "recent") %>%
-  mutate_if(is.list, as.character) %>%
-  write_csv(
-    here::here(str_glue("tweets/tml_talk-{opponent_file_format}-toronto-{game_date}.csv"))
-  )
+ # save tweets locally
+  search_tweets(tweet_keywords,
+                since = since,
+                until = until,
+                include_rts = FALSE,
+                retryonratelimit = TRUE,
+                
+                type = "recent") %>%
+    mutate_if(is.list, as.character) %>%
+    write_csv(
+      here::here(str_glue("tweets/tml_talk-{opponent_file_format}-toronto-{game_date}.csv"))
+    )
 
 tml_talk <- read_csv(
   here::here(str_glue("tweets/tml_talk-{opponent_file_format}-toronto-{game_date}.csv"))
@@ -170,39 +171,22 @@ tml_full_tweet_set <- tml_talk %>%
 
 # Calculating TF-IDF and Tweet volume
 
-## Reduce the set
+## Gather in intervals
 
 ```{r}
 # limits for desired tweets
 puck_drop <-  ymd_hms(game_data$game_start, tz = "America/New_York")
+
 min_hour <- puck_drop - 1800 
-max_hour <- puck_drop + 12600
+max_hour <- puck_drop + 10800
 
-# filter the tweet data for today's game
-tml_game_tweets <- tml_full_tweet_set %>%
-  filter(created_at > min_hour,
-         created_at < max_hour)
-```
-
-## Remove duplicates
-
-```{r}
-# remove duplicates
-tml_game_tweets_unique <- tml_game_tweets %>%
-  group_by(text) %>% 
-  mutate(tweet_entries = row_number()) %>% # count tweets and remove extra entries
-  filter(tweet_entries == 1) %>%
-  ungroup()
-```
-
-## Gather in 2-minute intervals
-
-```{r}
 # group into two-minute intervals
-tml_tweet_intervals <- tml_game_tweets_unique %>%
+tml_tweet_intervals <- tml_full_tweet_set %>%
   mutate(created_at = ymd_hms(created_at),
          interval = with_tz(round_date(created_at, "2 mins"), 
-                            tzone = "America/New_York")) 
+                            tzone = "America/New_York")) %>%
+    filter(created_at > min_hour,
+         created_at < max_hour)
 ```
 
 ## Extact emojis from tweets
@@ -249,7 +233,7 @@ tml_tweet_intervals <- tml_game_tweets_unique %>%
 
 ```{r}
 # Some unwanted_words and the search terms used
-unwanted_words <- c("10u", "t.co", "gotta", "#leafsforever", "games", "leafs", "#tmltalk", "hockey", "dont", "amp", "period", "region", "https", "10a", "pas", "att", "gonna", "ive", "les", "game", "hes", "#leafs", "#goleafsgo", "leaf's", "vai", "ml\U0001f4b5", "lieut", "maple", "vous", "weve", "ill", "theyre", "isnt", "youre")
+unwanted_words <- c("10u", "t.co", "gotta", "#leafsforever", "games", "leafs", "#tmltalk", "hockey", "dont", "amp", "period", "region", "https", "10a", "pas", "att", "gonna", "ive", "les", "game", "hes", "#leafs", "#goleafsgo", "leaf's", "vai", "ml\U0001f4b5", "lieut", "maple", "vous", "weve", "ill", "theyre", "isnt", "youre", "o55")
 ```
 
 ## Turn tweets into word tokens
@@ -281,6 +265,7 @@ tml_two_min_tokens <- tml_tweet_intervals %>%
 tml_top_words <- tml_two_min_tokens %>%
   bind_tf_idf(word, interval, n) %>%
   filter(n >= 3) %>%
+  # filter(interval != "2020-03-03 23:28:00" & tf_idf != 0.094035109) %>%
   arrange(interval, desc(tf_idf)) %>%
   distinct(interval, .keep_all = T) %>%
   arrange(interval)
@@ -407,8 +392,7 @@ image_paths <- data.frame(path = rownames(files))
 
 # look for the opponent's image 
 opponent_image <- image_paths %>%
-  mutate_if(is.factor, as.character) %>%
-  filter(str_detect(path, opponent_url_format))
+  mutate_if(is.factor, as.character)
 
 # opponent logo
 m <- readPNG(opponent_image$path)
@@ -447,7 +431,7 @@ if (str_detect(page_text[9], "BLUE") | str_detect(page_text[9], "Navy")) {
 
 ```{r}
 # x-axis Labels
-hourly_ranges <- data.frame(time = seq(min_hour + 1800, max_hour + 1800*4, by = 3600))
+hourly_ranges <- data.frame(time = seq(min_hour + 1800, max_hour + 1800, by = 3600))
 
 # convert into human readable
 time_breaks <- hourly_ranges %>%
@@ -497,7 +481,7 @@ base_plot <- tml_tweet_volume  %>%
         panel.grid.major.x = element_blank(),
         panel.grid.minor.x = element_blank(),
         panel.grid.minor.y = element_blank(),
-        plot.title = element_markdown(size = 20, face = "bold", colour = leafs_blue,
+        plot.title = element_markdown(size = 20, face = "bold", family = "Roboto Condensed", colour = leafs_blue,
                                       lineheight = 1, vjust = 1)) +
   expand_limits(y = 300)
 ```
@@ -517,11 +501,10 @@ if(dir.exists(here::here("/animations")) == FALSE) {
   dir.create(here::here("/animations"))
 }
 
-options(gganimate = options(dpi = 300))
-anim_save(animated_plot, 
-          fps = 20,  duration = 35,
-          width = 1024, height = 512,
-          filename = str_glue("animations/leafs-{opponent_file_format}-{game_data$date}.gif"))
+animate(animated_plot,           
+        fps = 20,  duration = 35,
+        width = 1024, height = 512,  type = "cairo", 
+        renderer = gifski_renderer(str_glue("animations/leafs-{opponent_file_format}-{game_data$date}.gif")))
 
 beepr::beep()
 ```
