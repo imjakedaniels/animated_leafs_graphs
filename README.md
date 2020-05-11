@@ -282,7 +282,7 @@ reddit_unwanted_words <- c("leafs", "teams", "team", "people", "game", "playing"
                            "period", "dun")
 ```
 
-# Functions for processing tweets & reddit comments
+## Step 3: Create functions for processing tweets & reddit comments
 
 We do the same processing to both data sets. So we should make some functions. Details are commented in the code.
 
