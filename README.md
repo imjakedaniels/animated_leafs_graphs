@@ -5,7 +5,7 @@
 
 I post these animations to [r/Leafs](https://www.reddit.com/r/leafs/comments/e80uu4/twitter_chatter_leafs_vs_blues_december_07_2019/)
 
-# Animation Notebook
+# Outline (from the notebook)
 
 In this notebook, I use R & Python to scrape Leafs comments off Twitter and Reddit, scrape relevant game metadata from various sources (ex. goal timestamps, team colours, start of game timestamps) by cleaning website data using regular expressions, then I combine the comments with the metadata and create an animated graph that shows what both audiences are talking about every two mins as they watch the hockey game unfold.
 
