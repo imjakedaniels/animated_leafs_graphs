@@ -93,8 +93,8 @@ import pandas as pd # to create panda data frame
 import praw # to connect to Reddit app
 
 # replace with your own info
-reddit = praw.Reddit(client_id='xxxxxxxxxxxxx', 
-  client_secret='xxxxxxxxxxxxxx-xxxxxxx',  # replace with your own
+reddit = praw.Reddit(client_id='xxxxxxxxxxx', 
+  client_secret='xxxxxxxxxxxxxxxxx-_xxxxxxx', 
   user_agent='datajake_app')
 ```
 
@@ -104,7 +104,7 @@ Using `{reticulate}`, I can use `r_to_py()` in my R chunks so regular R objects 
 
 This will take a few minutes.
 
-```{python reddit_connection}
+```{python reddit_scrape}
 # grab the thread that you put in the url arguement in the Inputs section
 submission = reddit.submission(url=r.reddit_url)
 
@@ -144,9 +144,9 @@ Please consult [rtweet's vignette](https://rtweet.info/index.html) for more info
 
 ```{r}
 # substitute your own information below
-twitter_token <- create_token(app = "datacriticsScraper", 
-                              consumer_key = "xxxxxxxxxxxxxxxxxxxxxxx", 
-                              consumer_secret = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",  
+twitter_token <- create_token(app = "xxxxxxxxxxxxxxxxxxx", 
+                              consumer_key = "xxxxxxxxxxxxxxxxxxxxxxxxxxx", 
+                              consumer_secret = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", 
                               set_renv = FALSE)
 ```
 
@@ -496,13 +496,13 @@ page_text <- read_html(team_url) %>%
   html_text() 
 
 # find the hexcodes, but don't use blue ones
-if (str_detect(page_text[9], "BLUE") | str_detect(page_text[9], "Navy")) {
+#if (str_detect(page_text[9], "BLUE") | str_detect(page_text[9], "Navy")) {
   # if the first colour is blue, use the alternative hex-code #000000
-  opponent_colour <- str_extract(page_text[10], "#[a-zA-Z0-9]+")
-} else {
-  # if not blue, use the first hex-code #000000
+#  opponent_colour <- str_extract(page_text[10], "#[a-zA-Z0-9]+")
+#} else {
+#  # if not blue, use the first hex-code #000000
   opponent_colour <- str_extract(page_text[9], "#[a-zA-Z0-9]+")
-}
+#}
 ```
 
 ## Make clean x-axis breaks
@@ -519,13 +519,39 @@ time_breaks <- hourly_ranges %>%
          time = toupper(time))
 ```
 
+## Running score df
+
+```{r}
+# replace with leafs_goals$created_at
+leafs_goals <- data.frame(interval = c(ymd_hms("2020-03-10 18:04:20", tz = "EST"), ymd_hms("2020-03-10 19:00:20",  tz = "EST"))) %>%
+  mutate(score = 1:nrow(.))
+
+# replace with opponent_goals_text$created_at
+opponent_goals_text <- data.frame(interval = c(ymd_hms("2020-03-10 18:07:20",  tz = "EST"), ymd_hms("2020-03-10 20:00:20",  tz = "EST"))) %>%
+  mutate(score = 1:nrow(.))
+
+game_score_df <- bind_rows(leafs_goals, opponent_goals_text, .id = "team") %>%
+  mutate(team = ifelse(team == 1, "leafs", "opponent")) %>%
+  spread(team, score) %>%
+  fill(leafs, opponent) %>%
+  mutate(leafs = replace_na(leafs, 0),
+         opponent = replace_na(opponent, 0)) %>%
+  bind_rows(data.frame(interval = min(tml_tweet_volume$interval),
+                       leafs = 0,
+                       opponent = 0)) %>%
+  mutate_if(is.numeric, as.character) %>%
+  arrange(interval)
+
+game_start_interval <- data.frame(interval = ymd_hms("2020-03-10 18:00:20", tz = "EST"))
+end_of_game_interval <- data.frame(interval = ymd_hms("2020-03-10 20:30:20",  tz = "EST"))
+```
+
 ## Base plot
 
 ```{r plot, fig.width = 7.2, fig.height = 4, dev = 'CairoPNG', dpi = 300}
-base_plot <-full_reddit_data %>%
+base_plot <- full_reddit_data %>%
   ggplot(aes(x = interval, y = thread_volume)) +
-  
-  # add logos (in the background)
+    # add logos (in the background)
   annotation_custom(leafs_logo, 
                     xmin = game_start_tweet$created_at + 4250,  # leafs to the left
                     xmax = game_start_tweet$created_at + 100, 
@@ -536,19 +562,19 @@ base_plot <-full_reddit_data %>%
                     ymin=-Inf, ymax=Inf) +
   
   # add our metadata events as lines like start time and goals
-  geom_vline(xintercept = game_start_tweet$created_at, size = 1) +
-  geom_vline(xintercept = end_of_game$created_at, size = 1) +
-  geom_vline(xintercept = leafs_goals$created_at,
-             linetype = 5,
-             size = 0.85,
-             colour = leafs_blue) +
-  geom_vline(xintercept = opponent_goals_text$created_at,
-             linetype = 2,
-             size = 0.85,
-             colour = opponent_colour) +
-  
+  geom_vline(xintercept = game_start_tweet$created_at) +
+  geom_vline(xintercept = end_of_game$created_at) +
+  #geom_vline(xintercept = leafs_goals$created_at,
+  #           linetype = 5, size = 0.85, colour = leafs_blue) +
+  #geom_vline(xintercept = opponent_goals_text$created_at,
+  #           linetype = 2, size = 0.85, colour = opponent_colour) +
+  #
+  geom_text(data = game_score_df, aes(x = game_start_interval$interval + 3800, y = 600, label = leafs), 
+            size = 15, alpha = 0.3, colour = leafs_blue, family = "Montserrat SemiBold") +
+  geom_text(data = game_score_df, aes(x = end_of_game_interval$interval - 3800, y = 600, label = opponent), 
+            size = 15, alpha = 0.3, colour = opponent_colour, family = "Montserrat SemiBold") +
   # draw the tweet volume lines
-  geom_line(data = full_tweet_data, aes(y = thread_volume), color = "lightblue", size = 2) +
+  geom_line(data = full_tweet_data, aes(y = thread_volume), color = "#1DA1F2", size = 2) +
   geom_line(color = "#FF7B4D", size = 2) +
   
   # draw the words next
@@ -565,17 +591,18 @@ base_plot <-full_reddit_data %>%
   coord_cartesian(clip = "off") +
   labs(title = str_glue("<b style='color:{leafs_blue};font-size:22px'>MAPLE LEAFS</b> <br> <b style='font-size:27px'>CHATTER CHARTS"),
        subtitle = str_glue("<b style='color:#FF4301'>— Reddit Game Thread</b> <b style='color:#1DA1F2'> — Twitter Tweets</b>"),
-       x= "", y = "Chat Volume Every 2 Mins (log scale)") +
+       x= "", y = "Chat Volume") +
   theme(text = element_text(lineheight = 1),
         panel.grid = element_blank(),
-        panel.border = element_rect(fill = NA, color = grey(0.2), size = 1),
-        axis.title.y = element_markdown(size = 8),
+        panel.border = element_rect(fill = NA, colour = grey(0.2), size = 1),
+        axis.title.y = element_markdown(size = 8, colour = grey(0.2)),
+        axis.ticks = element_line(colour = grey(0.2)),
         plot.title = element_markdown(size = 12, face = "bold",
                                       lineheight = 1, vjust = 1, family = "Montserrat ExtraBold"),
         plot.subtitle = element_markdown(size = 10, family = "Inter ExtraBold", vjust = -20),
         plot.caption = element_text(size = 6, family = "Inter ExtraBold"),
-        plot.margin = margin(0.5, 1, 0.5, 1, "cm")) +
-  expand_limits(y = 1000)
+        plot.margin = margin(0.5, 1, 0.1, 1, "cm")) +
+  expand_limits(y = 1000, x = c(game_start_interval$interval - 1800, end_of_game_interval$interval + 1800))
 ```
 
 
@@ -590,7 +617,7 @@ animated_plot <- base_plot +
 
 This takes about 20 minutes. It'll beep for you.
 
-```{r saving_animation, ggani}
+```{r saving_animation}
 options(gganimate.dev_args = list(height = 4, width = 4*1.8, units = 'in', type = "cairo", res = 144))
 
 animate(plot = animated_plot,
