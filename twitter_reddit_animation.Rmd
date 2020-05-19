@@ -45,16 +45,20 @@ reddit_url <- "https://www.reddit.com/r/leafs/comments/fgl1tq/game_thread_tampa_
 
 # Gather metadata about the game
 
+I want to automate as much as I can in this workflow. So instead of manually looking up the game start times, I found a source online to scrape for it. The only thing is it disappears after the game is played and replaced with the game results!
+
+Here's how I handled that.
+
+
 ## Fetch original schedule data
 
-First, I scraped the Leafs upcoming schedule back in November 2019 off [CBS sports](https://www.cbssports.com/nhl/teams/TOR/toronto-maple-leafs/schedule/regular/) and have that stored. The pre-game schedule has the our `game_start` time which I will use to filter out the comment/tweets data and define the outer limits of the chart.
+First, I scraped the Leafs upcoming schedule back in November 2019 off [CBS sports](https://www.cbssports.com/nhl/teams/TOR/toronto-maple-leafs/schedule/regular/) and stored it as a csv. The pre-game schedule has the our `game_start` time which I will use to filter out the comment/tweets data and define the outer limits of the chart.
 
 ```{r}
 # get the base schedule stored in the repo that has the pre-game data saved to join
 pre_game_schedule <- read_csv(str_glue("{here::here()}/team_schedules/leafs_game_schedule.csv")) %>%
   select(date, game_start, opponent = opp) # our columns
 ```
-
 
 But the website updates when a game is played to show the `game_result`. So once a game is played, the website replaces `game_start` time for the `game_result` that's why we will scrape the page today and join it with our saved version. 
 
@@ -589,16 +593,19 @@ running_game_score_df <- bind_rows(leafs_score, opponent_score, .id = "team") %>
   spread(team, score) %>%
   fill(leafs, opponent) %>%
   mutate(leafs = replace_na(leafs, 0),
-         opponent = replace_na(opponent, 0)) %>%
+        opponent = replace_na(opponent, 0)) %>%
   bind_rows(data.frame(status_id = "",
                        interval = min(tml_tweet_volume$interval),
                        text = "",
                        leafs = 0,
                        opponent = 0)) %>%
   mutate(running_score = str_glue("{leafs} - {opponent}")) %>%
-  mutate(interval = round_date(interval, "2 mins")) %>%
-  mutate_if(is.numeric, as.character) %>%
-  arrange(interval) 
+  select(interval, running_score) %>%
+  full_join(full_reddit_data, by = "interval") %>%
+  arrange(interval) %>%
+  fill(running_score) %>%
+  fill(word) %>%
+  fill(thread_volume)
 ```
 
 ## Base plot
@@ -625,7 +632,7 @@ base_plot <- full_reddit_data %>%
              linetype = 2, size = 0.85, colour = opponent_colour) +
   
   # add scoreboard in background
-  geom_text(data = running_game_score_df, 
+  geom_text(data = running_game_score_df,
             aes(x = mean(c(game_start_tweet$created_at, end_of_game$created_at)), y = 600, label = running_score), 
             size = 15, alpha = 0.3, colour = leafs_blue, family = "Quantico") +
 
@@ -642,8 +649,8 @@ base_plot <- full_reddit_data %>%
             size = 12, colour = "black", family = "Oswald", vjust = 0.5) + # reddit
   
   ## styling
-  #scale_x_datetime(breaks = hourly_ranges$time, 
-  #                 labels = time_breaks$time) +
+  scale_x_datetime(breaks = hourly_ranges$time, 
+                   labels = time_breaks$time) +
   scale_y_log10() +
   expand_limits(y = 1000, x = c(game_start_tweet$created_at - 1800, end_of_game$created_at + 1800)) +
   
@@ -652,6 +659,7 @@ base_plot <- full_reddit_data %>%
   labs(title = str_glue("<b style='color:{leafs_blue};font-size:22px'>MAPLE LEAFS</b> <br> <b style='font-size:27px'>CHATTER CHARTS"),
        subtitle = str_glue("<b style='color:#FF4301'>— Reddit Game Thread</b> <b style='color:#1DA1F2'> — Twitter Tweets</b>"),
        x= "", y = "Chat Volume") +
+  
   theme(text = element_text(lineheight = 1),
         panel.grid = element_blank(),
         panel.border = element_rect(fill = NA, colour = grey(0.2), size = 1),
@@ -677,10 +685,10 @@ animated_plot <- base_plot +
 This takes about 20 minutes. It'll beep for you.
 
 ```{r saving_animation}
-options(gganimate.dev_args = list(height = 4, width = 4*1.8, units = 'in', type = "cairo", res = 144))
+options(gganimate.dev_args = list(height = 4, width = 7.2, units = 'in', type = "cairo", res = 144))
 
 animate(plot = animated_plot,
-        fps = 20, duration = 15,
+        fps = 10, duration = 10,
         type = "cairo",
         renderer = av_renderer(str_glue("animations/twitter_reddit-leafs-{opponent_file_format}-{game_data$date}22.mp4")))
 
