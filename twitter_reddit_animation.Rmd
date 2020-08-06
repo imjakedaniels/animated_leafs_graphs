@@ -11,7 +11,7 @@ In this notebook, I use R & Python to scrape Leafs comments off Twitter and Redd
 
 You'll need to have python installed. I [followed this article](https://docs.python-guide.org/starting/install3/win/) on how to install it on Windows 10 using `choco`.
 
-```{r packages, message=FALSE, warning=FALSE}
+```{r setup, message=FALSE, warning=FALSE}
 library(tidyverse) # for general data manipulation in R
 library(reticulate) # to convert from Python
 library(rtweet) # to get tweets
@@ -23,6 +23,7 @@ library(png) # for image manipulation
 library(grid) # for custom plot manipulation
 library(extrafont) # for nice fonts
 library(ggtext) # for adding html styling in plot titles
+library(ggimage) # for social media icons
 theme_set(theme_light(base_family = "Montserrat ExtraBold"))
 # py_install("pandas") # run this to install pandas
 # py_install("praw") # and praw
@@ -34,13 +35,13 @@ I got a few questions to ask...
 
 ```{r input}
 # When was the game played?
-game_date <- "2020-03-10"
+game_date <- "2020-08-04"
 
 # What keywords should the Leafs tweets contain?
-tweet_keywords <- "#TMLTalk OR #LeafsForever OR @MapleLeafs OR leafs OR #leafs OR #GoLeafsGo OR #mapleleafs"
+tweet_keywords <- "#TMLTalk OR #LeafsForever OR @MapleLeafs OR leafs OR #leafs OR #GoLeafsGo OR #mapleleafs OR #LeafsNation"
 
 # What is the url to the reddit game thread?
-reddit_url <- "https://www.reddit.com/r/leafs/comments/fgl1tq/game_thread_tampa_bay_lightning_43206_at_toronto/"
+reddit_url <- "https://www.reddit.com/r/leafs/comments/i3pfsu/game_thread_columbus_blue_jackets_332215_at/"
 ```
 
 # Gather metadata about the game
@@ -89,8 +90,13 @@ game_results_df <- pre_game_schedule %>%
   left_join(completed_game_schedule, by = "date") %>%
   mutate(win = ifelse(str_detect(result, "^W"), TRUE, FALSE))
 
-# filter for the game of interest using date == game_date (an variable we specified earlier)
+# filter for the game of interest using date == game_date (a variable we specified earlier)
 game_data <- game_results_df %>%
+  full_join(data.frame(date = as.Date("2020-08-04"), 
+                       game_start = as_datetime("2020-08-04 16:00:00"),
+                       opponent = "Columbus Blue Jackets",
+                       result = "W 3-0",
+                       win = TRUE)) %>%
   filter(date == game_date)
 ```
 
@@ -113,7 +119,7 @@ Using `{reticulate}`, regular R objects can be fetched in Python chunks using `r
 
 ```{python reddit_connection}
 import pandas as pd # to create pandas data
-import praw # to connect to Reddit app
+import praw # to connect to Reddit
 
 # replace with your own info
 reddit = praw.Reddit(client_id=r.client_id_reddit, 
@@ -149,8 +155,11 @@ Inversely, I can use `{reticulate}` to call `py$` and examine a python object in
 tml_full_reddit_set <- py$topics_data %>%
   mutate(created = ymd_hms(as_datetime(created) - hours(12), tz = "America/New_York")) %>% # adjust the timezone to EST
   rename(text = body,
-         created_at = created) # make the date & text variable consistent on reddit with twitter
+         created_at = created) %>% # make the date & text variable consistent on reddit with twitter
+  arrange(created_at)
+```
 
+```{r saving}
 # make friendly formats to save my files
 opponent_file_format <- str_replace_all(tolower(game_data$opponent), " ", "-")
 
@@ -164,7 +173,7 @@ You'll need to apply for a Twitter API Token. More details at: [https://develope
 
 Please consult [rtweet's vignette](https://rtweet.info/index.html) for more info on setting up the token.
 
-```{r}
+```{r twitter_auth}
 # substitute your own information below
 twitter_token <- create_token(app = Sys.getenv("TWITTER_APP"), 
                               consumer_key = Sys.getenv("TWITTER_CONSUMER_KEY"), 
@@ -210,35 +219,29 @@ Sometimes general keywords miss valuable conversations.
 I chose some people who commonly tweet about the Leafs during games to add into the data.
 
 ```{r influencer_tweets, message=FALSE}
-tmls <- get_timelines(c("domluszczyszyn", "Steve_Dangle",
-                        "IanGraph", "JeffVeillette",
-                        "DownGoesBrown", "3rdPeriodSuits",
-                        "ThatsCappy", "duarteelauraa",
-                        "rahef_issa", "_marlanderthews", 
-                        "LeafFan1917", "TheLeafsIMO", 
-                        "TheOakLeafs", "TheFlintor", 
-                        "MarkUkLeaf", "LeafsMaz20",
-                        "karlandtheleafs", "Buds_All_Day",
-                        "mirtle", "jonassiegel",
-                        "kristen_shilton", "reporterchris",
-                        "51Leafs", "ATFulemin",
-                        "draglikepull", "TLNdc",
-                        "TicTacTOmar", "PPPLeafs",
-                        "MatthewsIsALeaf", "LeafsAllDayy",
-                        "NickDeSouza_", 
-                        "thejustinfisher", "HardevLad",
-                        "RyanDHobart", "jpolly22",
-                        "jxcquelineoh", "jakebeleafs",
-                        "account4hockey", "briancrd", 
-                        "team_keefe", "Dylan_Morrow",
-                        "LeafsFansUnited", "aigemac",
-                        "mostlyleafies", "Its_Mr_Clutch"), 
-                      n = 100,
-                      token = twitter_token) %>% # 100 tweets each
+tmls <- get_timelines(c("domluszczyszyn", "Steve_Dangle", "IanGraph", "DownGoesBrown", "3rdPeriodSuits", 
+                         "duarteelauraa", "rahef_issa", "_marlanderthews", "LeafFan1917", "TheLeafsIMO", 
+                        "TheOakLeafs", "TheFlintor", "MarkUkLeaf", "LeafsMaz20", "karlandtheleafs", 
+                        "mirtle", "jonassiegel", "kristen_shilton", "reporterchris", "Buds_All_Day",
+                        "ATFulemin", "nine2schenn", "draglikepull", "TLNdc",  "thejustinfisher",
+                        "TicTacTOmar", "PPPLeafs", "NickDeSouza_", "LeafsAllDayy", "ThatsKappy",
+                        "HardevLad", "RyanDHobart", "jpolly22", "jxcquelineoh", "jakebeleafs",
+                        "account4hockey", "briancrd",  "team_keefe", "Dylan_Morrow",
+                        "mostlyleafies", "Its_Mr_Clutch", "aigemac", "JuIia_Caesar",
+                        "Billy_chilly", "junotheleafs", "MerOutLoud", "sforys92",
+                        "MaheshNYCTO", "klapanen", "RideThePine89", "OFFSIDETALK", 
+                        "SamL_16", "marnylandersen", "mikewestlakee", "ElSeldo", 
+                        "JaredOfLondon", "dad_loop", "bobbycappucino", "rick_city",
+                        "Alex_Scotian", "marnylandersen","_NickRichard", "mrleaffan", 
+                        "OfficerStephen", "CoachBombayy","dirtbag_daddi", "CMDeathHawk",
+                        "leafermetrics", "JillianMcLeod05", "TMLGAL", "flyontheleaf",
+                        "Casual_Mats", "statssundin", "Totally_Offside", "ryanfancey", "MerOutLoud"), 
+                      n = 50,
+                      token = twitter_token) %>% # 50 tweets each
   select(created_at, text)
 ```
 
-## Combine the tweet
+## Combine the tweets
 
 ```{r all_tweets}
 # join the timelines of popular leaf accounts into the "leafs" tweet corpus
@@ -248,6 +251,110 @@ tml_full_tweet_set <- tml_talk %>%
   filter(row_number() == 1) %>% # remove duplicate entries found in both datasets
   ungroup() %>%
   mutate(created_at = with_tz(created_at, tzone = "America/New_York")) # set to EST
+```
+
+# Extract goals from @MapleLeafs' timeline 
+
+Ok, now we have our two sources of comments, let's focus on getting our goal events and game start/end timestamps for the chart.
+
+## Scrape the Leafs timeline
+
+First off, the Leafs' social media manager tweets in a similar fashion game-to-game.
+
+That means We can reliably regex the approximate game start, game end, and goal announcements in real time instead of using game time.
+
+```{r getting_leafs_timeline, message = FALSE}
+# get the recent 100 tweets by the leafs official account
+leafs_timeline <- get_timeline("@MapleLeafs", n = 50, token = twitter_token) %>%
+  select(status_id, created_at, text) %>%
+  mutate(created_at = with_tz(ymd_hms(created_at), tzone = "America/New_York")) %>%
+  filter(created_at >= game_data$date)
+```
+
+## Find Goals
+
+MapleLeafs usually tweet "GOAL" when they score.
+
+Sometimes they may not though, so i've added an argument `missing_goal_tweet_ids` for someone to put a vector of any that don't get picked up.
+
+```{r leaf_goals}
+# time of leafs goals
+find_leafs_goals <- function(tweet_timeline, missing_goal_tweet_ids = c()){
+  tweet_timeline %>%
+    filter(str_detect(text, "GOAL") | status_id %in% missing_goal_tweet_ids) # detect tweets that contain the word GOAL
+}
+
+leafs_goals <- find_leafs_goals(leafs_timeline, missing_goal_tweet_ids = c("1290770428391235584", "1290762414749896704", "1290781177918500864"))
+```
+
+The tweets very often mention the city/team name of an opponent when they score. But not always. If we are getting blown out they'll just tweet the score and they commonly just say "Empty net goal" if one is scored.
+
+```{r opponent_goals}
+# regex the opponent's city name (ex. Calgary scores) and team name (ex. Flames score) to help search for their goal announcements
+find_opponent_goals <- function(tweet_timeline, missing_goal_tweet_ids = c()){
+  
+  opponent_city <- str_extract(str_glue("{game_data$opponent}"), "^[a-zA-Z]+") # get first word of opponent
+  opponent_name <- str_extract(str_glue("{game_data$opponent}"), "[a-zA-Z]+$") # get last word iof opponent
+  
+  tweet_timeline %>%
+    filter(
+      ((str_detect(text, opponent_city) | str_detect(text, opponent_name) | str_detect(text, "Empty net goal")) # tweet contains one of these phrases
+       & str_detect(text, "score") | str_detect(text, "Empty net goal")) # and either of these phrases
+      | (status_id %in% missing_goal_tweet_ids))
+}
+
+opponent_goals <- find_opponent_goals(leafs_timeline, missing_goal_tweet_ids = c())
+```
+
+You'll need to manually add the goals the regex misses. This can happen with teams like LA or Habs. I recommend you explore the leafs_timeline object and remove the filter statement above and hardcode something like `filter(status_id == "1236126442288709633")`.
+
+## Game start 
+
+The Leafs' social media manager also usually announces the game start in their tweet with a common set of phrases. But if it is wrong, we can specify the id manually.
+
+```{r game_start_and_end}
+# Find the game start tweet using these keywords, if needed use manual_id to specify
+find_real_game_start <- function(tweet_timeline, manual_id = NULL) {
+  if (!is.null(manual_id)) {
+  tweet_timeline %>%
+    filter(status_id == manual_id)
+  } else {
+  tweet_timeline %>%
+    filter(str_detect(text, "[Aa]ction") | str_detect(text, "[Uu]nder way") | str_detect(text, "[Tt]une in") | str_detect(text, "(go time)")) %>%
+    arrange(created_at) %>%
+    head(1)
+  }
+}
+
+game_start_tweet <- find_real_game_start(leafs_timeline, manual_id = "1290740959324536838") %>%
+  mutate(created_at = created_at)
+```
+
+## Game end
+
+If we win, they always say "LEAFS WIN". Otherwise, there's a mixute of other phrases when we lose. 
+
+We will build some regex to find these most times. Worst case we need to search for the correct posts and hardcode.
+
+```{r game_start_and_end}
+find_real_game_end <- function(tweet_timeline, manual_id = NULL) {
+  if (!is.null(manual_id)) {
+    tweet_timeline %>%
+      filter(status_id == manual_id)
+  } else {
+    if (game_data$win == TRUE) {
+      tweet_timeline %>%
+        filter(str_detect(text, "LEAFS WIN"))
+    } else {
+      tweet_timeline %>%
+        filter(str_detect(text, "[Tt]ough") | str_detect(text, "[Bb]attle") | str_detect(text, "[Ff]inal")) %>%
+        head(1)
+    }
+  }
+}
+
+end_of_game <- find_real_game_end(leafs_timeline, manual_id = "1290781946000412676")
+end_of_game$created_at <- end_of_game$created_at - minutes(2)
 ```
 
 # Processing the data from both sources
@@ -263,19 +370,18 @@ Reduce the data into the time frame we are interested in.
 puck_drop <-  ymd_hms(game_data$game_start, tz = "America/New_York")
 
 min_hour <- puck_drop - 900 # filter 15 mins before scheduled game start
-max_hour <- puck_drop + 10800 
+max_hour <- end_of_game$created_at + 1800 # an extra 15 mins after socials say game ended
 ```
 
-### Cut into intervals
-
+### Reduce and cut into intervals
 
 ```{r}
 # define a function that filters down timestamps only to what we desire and rounds them
-reduce_to_intervals <- function(full_comment_df) {
+reduce_to_intervals <- function(full_comment_df, source) {
   full_comment_df %>%
     filter(created_at > min_hour,
            created_at < max_hour) %>%
-    mutate(interval = round_date(created_at, "2 mins")) # round into 2 minute intervals
+      mutate(interval = round_date(created_at, "2 mins"))
 }
 ```
 
@@ -298,11 +404,13 @@ twitter_unwanted_words <- c("10u", "t.co", "gotta", "#leafsforever", "games", "l
                             "youre", "o55", "bla", "guys", "row", "usa", "och", "temporada", "07mar",  
                             "playing", "play", "plays", "taking", "happen", "people", "leafs", "teams", 
                             "team", "people", "game", "gonna", "looked", "stream", "literally", "arent", 
-                            "played", "10mar", "bay", "cuz", "sur", "didnt", "doesnt", "watch")
+                            "played", "10mar", "est", "amo", "des", "los", "bay", "cuz", "sur", "didnt", "doesnt", 
+                            "watch", "ssin", "está", "ppl", "#leafsnation", "watching", "fan", "youve", "nos", "mais", "vmies", "muito",
+                            "def", "times", "cat", "een")
 
-reddit_unwanted_words <- c("leafs", "teams", "team", "people", "game", "playing", "play", "plays", "taking", 
-                           "happen", "people", "gonna", "looked", "stream", "literally", "arent", "played", "guys", 
-                           "period", "dun", "they’re", "makes", "periods", "players", "watch", "lot", "san", "based")
+reddit_unwanted_words <- c("leafs", "doesn", "leaf", "i’ve", "teams", "hockey", "team", "people", "game", "playing", "play", "plays", "taking", 
+                           "happen", "people", "gonna", "dont", "looked", "stream", "literally", "arent", "played", "guys", 
+                           "period", "ago", "aren", "questrade", "nhl com", "ins", "harvey's", "confirm", "dun", "nbsp", "they’re", "makes", "periods", "players", "watch", "lot", "didnt", "jpg", "person",  "san", "based", "vis", "don")
 ```
 
 # Functions for processing tweets & reddit comments
@@ -314,21 +422,15 @@ We do the same processing to both data sets. So we should make some functions. D
 create_two_min_tokens <- function(interval_df, tokenization = "words", unwanted_words) {
   interval_df %>%
     unnest_tokens(word, text, token = tokenization) %>%
-    mutate(word = str_replace_all(word, "[,_;\\.?!]", " "),
-           word = str_replace_all(word, ":$", " "),
-           word = str_replace_all(word, "\\\n", " "),
-           word = str_remove_all(word, '[”"“]'),
-           word = str_remove_all(word, "’$"),
-           word = str_remove_all(word, "’s$"),
-           word = str_remove_all(word, "’t$"), # lots of random cleaning from bad apostrophes
-           word = str_remove_all(word, "’m$"),
-           word = str_remove_all(word, "'$"),
-           word = str_trim(word)) %>%
     filter(!word %in% unwanted_words, # drop unwanted words 
            nchar(word) > 2, # words must be longer than 2 characters
            !str_detect(word, "^@"), # no twitter handles
-           !str_detect(word, "[0-9]+")) %>% # no long numbers
-    anti_join(stop_words, by = "word")  # removes noisy words
+           !str_detect(word, "^\\<"), # no emoji
+           !str_detect(word, "[0-9]+"),
+           !str_detect(word, "[^\x01-\x7F]"),
+           !str_detect(word, "https")) %>% # no long numbers
+    anti_join(stop_words, by = "word") %>% # removes noisy words
+    mutate(word = str_remove(word, "'s"))
 }
 ```
 
@@ -355,11 +457,18 @@ find_important_words <- function(tokenized_df, threshold = 3){
     arrange(interval, desc(tf_idf)) %>% # arrange by tf_idf
     distinct(interval, .keep_all = T) %>% # get the top result
     arrange(interval)
+
+  #tokenized_df %>%
+  #  bind_log_odds(word, interval, n) %>%
+  #  filter(n >= threshold) %>% # word must appear 3 times in the interval to qualify
+  #  arrange(interval, desc(log_odds_weighted)) %>% # arrange by tf_idf
+  #  distinct(interval, .keep_all = T) %>% # get the top result
+  #  arrange(interval)
 }
 
 tml_top_words_reddit <- find_important_words(reddit_two_min_tokens, threshold = 2)
 
-tml_top_words_tweets <- find_important_words(twitter_two_min_tokens, threshold = 3)
+tml_top_words_tweets <- find_important_words(twitter_two_min_tokens, threshold = 3) 
 ```
 
 ```{r}
@@ -386,117 +495,18 @@ We need to `full_join` because tf-idf can fail to find a word and we want to kee
 full_reddit_data <- tml_reddit_volume  %>%
   full_join(tml_top_words_reddit, by = "interval") %>% 
   fill(word) %>% 
-  mutate(word = replace_na(word, ""),
-         word = ifelse(thread_volume < 5, "", word))
+  mutate(word = replace_na(word, "")) %>%
+  filter(interval >= min_hour + minutes(5),
+         interval <= max_hour + minutes(5)) 
 ```
 
 ## Twitter
 
 ```{r}
 full_tweet_data <- tml_tweet_volume  %>%
-  inner_join(tml_top_words_tweets, by = "interval") 
-```
-
-# Extract goals from @MapleLeafs' timeline 
-
-Ok, now we have our two sources of comments, let's focus on getting our goal events and game start/end timestamps for the chart.
-
-## Scrape the Leafs timeline
-
-First off, the Leafs' social media manager tweets in a similar fashion game-to-game.
-
-That means We can reliably regex the approximate game start, game end, and goal announcements in real time instead of using game time.
-
-```{r getting_leafs_timeline, message = FALSE}
-# get the recent 100 tweets by the leafs official account
-leafs_timeline <- get_timeline("@MapleLeafs", n = 2500, token = twitter_token) %>%
-  select(status_id, created_at, text) %>%
-  mutate(created_at = with_tz(ymd_hms(created_at), tzone = "America/New_York")) %>%
-  filter(created_at >= game_data$date)
-```
-
-## Find Goals
-
-MapleLeafs always tweet "GOAL" when they score.
-
-Sometimes they may not though, so i've added an argument `missing_goal_tweet_ids` for someone to put a vector of any that don't get picked up.
-
-```{r leaf_goals}
-# time of leafs goals
-find_leafs_goals <- function(tweet_timeline, missing_goal_tweet_ids = c()){
-  tweet_timeline %>%
-    filter(str_detect(text, "GOAL") | status_id %in% missing_goal_tweet_ids) # detect tweets that contain the word GOAL
-}
-
-leafs_goals <- find_leafs_goals(leafs_timeline)
-```
-
-The tweets very often mention the city/team name of an opponent when they score. But not always. If we are getting blown out they'll just tweet the score and they commonly just say "Empty net goal" if one is scored.
-
-```{r opponent_goals}
-# regex the opponent's city name (ex. Calgary scores) and team name (ex. Flames score) to help search for their goal announcements
-find_opponent_goals <- function(tweet_timeline, missing_goal_tweet_ids = c()){
-  
-  opponent_city <- str_extract(str_glue("{game_data$opponent}"), "^[a-zA-Z]+") # get first word of opponent
-  opponent_name <- str_extract(str_glue("{game_data$opponent}"), "[a-zA-Z]+$") # get last word iof opponent
-  
-  tweet_timeline %>%
-    filter(
-      ((str_detect(text, opponent_city) | str_detect(text, opponent_name) | str_detect(text, "Empty net goal")) # tweet contains one of these phrases
-       & str_detect(text, "score") | str_detect(text, "Empty net goal")) # and either of these phrases
-      | (status_id %in% missing_goal_tweet_ids))
-}
-
-opponent_goals <- find_opponent_goals(leafs_timeline)
-```
-
-You'll need to manually add the goals the regex misses. This can happen with teams like LA or Habs. I recommend you explore the leafs_timeline object and remove the filter statement above and hardcode something like `filter(status_id == "1236126442288709633")`.
-
-## Game start 
-
-The Leafs' social media manager also usually announces the game start in their tweet with a common set of phrases. But if it is wrong, we can specify the id manually.
-
-```{r game_start_and_end}
-# Find the game start tweet using these keywords, if needed use manual_id to specify
-find_real_game_start <- function(tweet_timeline, manual_id = NULL) {
-  if (!is.null(manual_id)) {
-  tweet_timeline %>%
-    filter(status_id == manual_id)
-  } else {
-  tweet_timeline %>%
-    filter(str_detect(text, "[Aa]ction") | str_detect(text, "[Uu]nder way") | str_detect(text, "[Tt]une in") | str_detect(text, "(go time)")) %>%
-    arrange(created_at) %>%
-    head(1)
-  }
-}
-
-game_start_tweet <- find_real_game_start(leafs_timeline)
-```
-
-## Game end
-
-If we win, they always say "LEAFS WIN". Otherwise, there's a mixute of other phrases when we lose. 
-
-We will build some regex to find these most times. Worst case we need to search for the correct posts and hardcode.
-
-```{r game_start_and_end}
-find_real_game_end <- function(tweet_timeline, manual_id = NULL) {
-  if (!is.null(manual_id)) {
-    tweet_timeline %>%
-      filter(status_id == manual_id)
-  } else {
-    if (game_data$win == TRUE) {
-      tweet_timeline %>%
-        filter(str_detect(text, "LEAFS WIN"))
-    } else {
-      tweet_timeline %>%
-        filter(str_detect(text, "[Tt]ough") | str_detect(text, "[Bb]attle") | str_detect(text, "[Ff]inal")) %>%
-        head(1)
-    }
-  }
-}
-
-end_of_game <- find_real_game_end(leafs_timeline)
+  inner_join(tml_top_words_tweets, by = "interval") %>%
+  filter(interval >= min_hour - minutes(15),
+         interval <= max_hour + minutes(15))
 ```
 
 # Make the chart
@@ -506,15 +516,12 @@ end_of_game <- find_real_game_end(leafs_timeline)
 I add transparent logos to the background image I scraped all them from Wikipedia profile images using the code in the setup_notebook repo.
 
 ```{r leaf_logo}
-# leafs colour
-leafs_blue <- "#00205B"
-
 # read the leafs logo
 l <- readPNG(str_glue("{here::here()}/team_images/220px-Toronto_Maple_leafs_2016_logo.svg.png"))
 
-# I make them transparent by multiplying the RGB values by 0.2.
-f <- matrix(rgb(l[,,1],l[,,2],l[,,3], l[,,4] * 0.4), nrow=dim(l)[1]) # This makes it transparent - 0.2 is alpha
-leafs_logo <- rasterGrob(f, interpolate=TRUE)
+# I make them transparent by multiplying the RGB values by 0.4.
+f <- matrix(rgb(l[,,1],l[,,2],l[,,3], l[,,4] * 0.4), nrow=dim(l)[1]) # This makes it transparent - 0.4 is alpha
+leafs_logo <- rasterGrob(f, interpolate = TRUE)
 ```
 
 ```{r opponent_logo}
@@ -533,8 +540,8 @@ opponent_image <- image_paths %>%
 m <- readPNG(opponent_image$path)
 
 # make transparent
-w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * 0.4), nrow=dim(m)[1]) 
-opponent_logo <- rasterGrob(w, interpolate=TRUE)
+w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * 0.4), nrow = dim(m)[1]) 
+opponent_logo <- rasterGrob(w, interpolate = TRUE)
 ```
 
 ## Lookup opponent's colour
@@ -542,6 +549,12 @@ opponent_logo <- rasterGrob(w, interpolate=TRUE)
 The Leafs are always blue. I use [teamcolorcodes.com](teamcolorcodes.com) to lookup the opponent's colour. This is for the goal number to better stylize the chart.
 
 ```{r}
+# leafs colour
+leafs_blue <- "#00205B"
+```
+
+```{r}
+# find opponent colour
 # build url
 team_url <- paste0("https://teamcolorcodes.com/",  tolower(opponent_file_format), "-color-codes/")
 
@@ -557,22 +570,6 @@ page_text <- read_html(team_url) %>%
 opponent_colour <- str_extract(page_text[9], "#[a-zA-Z0-9]+")
 ```
 
-## Make clean x-axis breaks
-
-Make the x-axis breaks look human readable.
-
-```{r}
-# x-axis time stamps
-hourly_ranges <- data.frame(time = seq(min_hour + 900, max_hour + 1800, by = 3600)) # every hour
-
-# convert into human readable labels
-time_breaks <- hourly_ranges %>%
-  mutate(time = format(strptime(hourly_ranges$time, "%F %H:%M:%S"), format = "%I:%M %p"), # delete this $
-         time = str_remove(time, "^0"),
-         time = str_remove(time, " "),
-         time = toupper(time))
-```
-
 ## Scoreboard data
 
 Make a dataframe with the current game score to plot.
@@ -586,9 +583,12 @@ leafs_score <- leafs_goals %>%
 opponent_score <- opponent_goals %>%
   rename(interval = created_at) %>%
   arrange(interval) %>%
-  mutate(score = 1:nrow(.))
+  full_join(data.frame(status_id = "0000", 
+                       created_at = ymd_hms("2020-08-05 18:03:46"),
+                       text = "yeah"))
+  
 
-running_game_score_df <- bind_rows(leafs_score, opponent_score, .id = "team") %>%
+first_df <- bind_rows(leafs_score, opponent_score, .id = "team") %>%
   mutate(team = ifelse(team == 1, "leafs", "opponent")) %>%
   spread(team, score) %>%
   fill(leafs, opponent) %>%
@@ -600,65 +600,145 @@ running_game_score_df <- bind_rows(leafs_score, opponent_score, .id = "team") %>
                        leafs = 0,
                        opponent = 0)) %>%
   mutate(running_score = str_glue("{leafs} - {opponent}")) %>%
-  select(interval, running_score) %>%
+  arrange(interval)
+
+prep_df <- first_df %>%
+  bind_rows(data.frame(interval = .$interval + minutes(2),
+                       running_score = .$running_score)) %>%
+  bind_rows(data.frame(interval = end_of_game$created_at,
+                       running_score = max(.$running_score))) %>%
+  mutate(alpha = 0.9) %>%
+  select(interval, running_score, alpha) 
+
+running_game_score_df <- prep_df %>%
   full_join(full_reddit_data, by = "interval") %>%
+  mutate(alpha = ifelse(!is.na(running_score), 0.9, 0.4)) %>%
+  mutate(alpha = ifelse(interval %in% round_date(first_df$interval + minutes(1), "2 minutes"), 0.9, alpha)) %>%
+  mutate(alpha = ifelse(interval < game_start_tweet$created_at, 0.4, alpha)) %>%
+  mutate(alpha = ifelse(interval >= end_of_game$created_at, 0.9, alpha)) %>%
   arrange(interval) %>%
   fill(running_score) %>%
-  fill(word) %>%
-  fill(thread_volume)
+  select(interval, running_score, alpha) 
 ```
 
-## Base plot
+# Base plot - reddit only
 
-```{r plot, fig.width = 7.2, fig.height = 4, dev = 'CairoPNG', dpi = 300}
-base_plot <- full_reddit_data %>%
+```{r}
+base_reddit_plot <- full_reddit_data %>% 
   ggplot(aes(x = interval, y = thread_volume)) +
     # add logos (in the background)
   annotation_custom(leafs_logo, 
                     xmin = game_start_tweet$created_at + 4250,  # leafs to the left
                     xmax = game_start_tweet$created_at + 100, 
-                    ymin=-Inf, ymax=Inf) +
+                    ymin = -Inf, ymax = Inf) +
   annotation_custom(opponent_logo,
                     xmin = end_of_game$created_at - 4250, # opponent to the right
                     xmax = end_of_game$created_at - 100,
-                    ymin=-Inf, ymax=Inf) +
+                    ymin = -Inf, ymax = Inf) +
   
   # add our metadata events as lines like start time and goals
-  geom_vline(xintercept = game_start_tweet$created_at) +
-  geom_vline(xintercept = end_of_game$created_at) +
-  geom_vline(xintercept = leafs_goals$created_at,
+  geom_vline(data = game_start_tweet, 
+             aes(xintercept = created_at)) +
+  geom_vline(data = end_of_game, 
+             aes(xintercept = created_at)) +
+  geom_vline(data = leafs_goals, 
+             aes(xintercept = created_at),
              linetype = 5, size = 0.85, colour = leafs_blue) +
-  geom_vline(xintercept = opponent_goals$created_at,
-             linetype = 2, size = 0.85, colour = opponent_colour) +
+ # geom_vline(data = opponent_goals, aes(xintercept = created_at),
+ #            linetype = 2, size = 0.85, colour = opponent_colour) +
   
-  # add scoreboard in background
+      # add scoreboard
   geom_text(data = running_game_score_df,
-            aes(x = mean(c(game_start_tweet$created_at, end_of_game$created_at)), y = 600, label = running_score), 
-            size = 15, alpha = 0.3, colour = leafs_blue, family = "Quantico") +
-
+            aes(x = mean(c(game_start_tweet$created_at, end_of_game$created_at)), y = 600, 
+                label = running_score, alpha = alpha), 
+            size = 15, colour = leafs_blue, family = "Quantico", show.legend = FALSE) +
+  
   # draw the tweet volume lines
-  geom_line(data = full_tweet_data, 
-            aes(y = thread_volume), color = "#1DA1F2", size = 2) +
   geom_line(color = "#FF7B4D", size = 2) +
   
+  geom_image(aes(image = "social_images/reddit_icon_small.png")) +
+  
   # draw the words next
-  geom_text(data = full_tweet_data, 
-            aes(y = thread_volume, label = word), 
-            size = 10, colour = "black", family = "Inter SemiBold", vjust = -0.5) + # twitter
   geom_text(aes(label = word), 
-            size = 12, colour = "black", family = "Oswald", vjust = 0.5) + # reddit
+            size = 10, colour = "black", family = "Inter SemiBold", vjust = -0.5) + # reddit
   
   ## styling
-  scale_x_datetime(breaks = hourly_ranges$time, 
-                   labels = time_breaks$time) +
+  scale_x_datetime(breaks = scales::breaks_width(width = "1 hour"),
+                   labels = scales::label_date(format = "%I:%M %p", tz = "America/New_York")) +
   scale_y_log10() +
-  expand_limits(y = 1000, x = c(game_start_tweet$created_at - 1800, end_of_game$created_at + 1800)) +
+  scale_alpha(range = c(0.4, 0.9)) +
+  expand_limits(y = 10:1000, x = c(game_start_tweet$created_at - 1800, end_of_game$created_at + 1800)) +
   
   coord_cartesian(clip = "off") +
   
   labs(title = str_glue("<b style='color:{leafs_blue};font-size:22px'>MAPLE LEAFS</b> <br> <b style='font-size:27px'>CHATTER CHARTS"),
-       subtitle = str_glue("<b style='color:#FF4301'>— Reddit Game Thread</b> <b style='color:#1DA1F2'> — Twitter Tweets</b>"),
-       x= "", y = "Chat Volume") +
+      # subtitle = str_glue("<b style='color:#FF4301'>—   Reddit Game Thread</b>"),
+       x= "", 
+       y = "Comment Volume") +
+  
+  theme(text = element_text(lineheight = 1),
+        panel.grid = element_blank(),
+        panel.border = element_rect(fill = NA, colour = grey(0.2), size = 1),
+        axis.title.y = element_markdown(size = 8, colour = grey(0.2)),
+        axis.ticks = element_line(colour = grey(0.2)),
+        plot.title = element_markdown(size = 12, face = "bold",
+                                      lineheight = 1, vjust = 1, family = "Montserrat ExtraBold"),
+        plot.subtitle = element_markdown(size = 10, family = "Inter ExtraBold", vjust = -20),
+        plot.caption = element_text(size = 6, family = "Inter ExtraBold"),
+        plot.margin = margin(0.5, 1, 0.1, 1, "cm")) 
+```
+
+```{r}
+base_twitter_plot <- full_tweet_data %>%
+  ggplot(aes(x = interval, y = thread_volume)) +
+  # add logos (in the background)
+  annotation_custom(leafs_logo, 
+                    xmin = game_start_tweet$created_at + 4250,  # leafs to the left
+                    xmax = game_start_tweet$created_at + 100, 
+                    ymin = -Inf, ymax = Inf) +
+  annotation_custom(opponent_logo,
+                    xmin = end_of_game$created_at - 4250, # opponent to the right
+                    xmax = end_of_game$created_at - 100,
+                    ymin = -Inf, ymax = Inf) +
+  
+  # add our metadata events as lines like start time and goals
+  geom_vline(data = game_start_tweet, 
+             aes(xintercept = created_at)) +
+  geom_vline(data = end_of_game, 
+             aes(xintercept = created_at)) +
+  geom_vline(data = leafs_goals, 
+             aes(xintercept = created_at),
+             linetype = 5, size = 0.85, colour = leafs_blue) +
+ #geom_vline(data = opponent_goals, aes(xintercept = created_at),
+ #           linetype = 2, size = 0.85, colour = opponent_colour) +
+  
+  # add scoreboard
+  geom_text(data = running_game_score_df,
+            aes(x = mean(c(game_start_tweet$created_at, end_of_game$created_at)), y = 600, 
+                label = running_score, alpha = alpha), 
+            size = 15, colour = leafs_blue, family = "Quantico", show.legend = FALSE) +
+
+  geom_line(color = "#1DA1F2", size = 2) +
+  
+  geom_image(aes(image = "social_images/twitter_icon_small.png")) +
+  
+  # draw the words next
+  geom_text(aes(label = word), 
+            size = 10, colour = "black", family = "Inter SemiBold", vjust = -0.5) + # twitter
+ 
+  ## styling
+  scale_x_datetime(breaks = scales::breaks_width(width = "1 hour"),
+                   labels = scales::label_date(format = "%I:%M %p", tz = "America/New_York")) +
+  scale_y_log10() +
+  scale_alpha(range = c(0.4, 0.9)) +
+  expand_limits(y = 10:1000, x = c(game_start_tweet$created_at - 1800, end_of_game$created_at + 1800)) +
+  
+  coord_cartesian(clip = "off") +
+  
+  labs(title = str_glue("<b style='color:{leafs_blue};font-size:22px'>MAPLE LEAFS</b> <br> <b style='font-size:27px'>CHATTER CHARTS"),
+      # subtitle = str_glue("<b style='color:#1DA1F2'>—  Twitter Tweets</b>"),
+       x= "", 
+       y = "Tweet Volume") +
   
   theme(text = element_text(lineheight = 1),
         panel.grid = element_blank(),
@@ -675,9 +755,14 @@ base_plot <- full_reddit_data %>%
 
 ```{r fig.width = 7.2, fig.height = 4, dev = 'CairoPNG'}
 # Add animation
-animated_plot <- base_plot +
+chart_animation <- function(base_chart) {
+animated_plot <- base_chart +
   transition_reveal(interval) + # follow the interval
   ease_aes("linear") # fixed speed
+
+}
+
+animated_plot <- chart_animation(base_twitter_plot)
 ```
 
 # Save animation
@@ -688,9 +773,9 @@ This takes about 20 minutes. It'll beep for you.
 options(gganimate.dev_args = list(height = 4, width = 7.2, units = 'in', type = "cairo", res = 144))
 
 animate(plot = animated_plot,
-        fps = 10, duration = 10,
+        fps = 25, duration = 35,
         type = "cairo",
-        renderer = av_renderer(str_glue("animations/twitter_reddit-leafs-{opponent_file_format}-{game_data$date}22.mp4")))
+        renderer = av_renderer(str_glue("animations/twitter-leafs-{opponent_file_format}-{game_data$date}.mp4")))
 
 beepr::beep()
 ```
