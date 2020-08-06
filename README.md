@@ -3,7 +3,7 @@
 
 [![Example](https://github.com/imjakedaniels/animated_leafs_graphs/blob/master/animations/twitter_reddit-leafs-tampa-bay-lightning-2020-03-10.gif)](https://www.reddit.com/r/leafs/comments/e80uu4/twitter_chatter_leafs_vs_blues_december_07_2019/)
 
-I post these animations to [r/Leafs](https://www.reddit.com/r/leafs/comments/e80uu4/twitter_chatter_leafs_vs_blues_december_07_2019/)
+I post these animations to [@ChatterCharts](https://www.twitter.com/ChatterCharts) and [r/Leafs](https://www.reddit.com/r/leafs/comments/e80uu4/twitter_chatter_leafs_vs_blues_december_07_2019/)
 
 # Outline (from the notebook)
 
@@ -47,7 +47,7 @@ reddit_url <- r_to_py("https://www.reddit.com/r/leafs/comments/fgl1tq/game_threa
 
 First, I scraped the Leafs upcoming schedule back in November 2019 off [CBS sports](https://www.cbssports.com/nhl/teams/TOR/toronto-maple-leafs/schedule/regular/). The website has two tables, one of past games and one of upcoming games. 
 
-Those tables contain different information, like game start time for upcoming games and game result in past games, So once a game is played, it replaces game start time for game result. So I join the post-game data into the pre-game data I stored for the complete gane metadata I can use throughout this workbook.
+Those tables contain different information, like game start time for upcoming games and game result in past games, So once a game is played, it replaces game start time for game result. I join the post-game data into the pre-game data I stored for the complete game metadata I can use throughout this workbook.
 
 ```r
 page_url <- "https://www.cbssports.com/nhl/teams/TOR/toronto-maple-leafs/schedule/regular/"
