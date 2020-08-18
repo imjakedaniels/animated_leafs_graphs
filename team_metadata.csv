@@ -1,0 +1,23 @@
+team_name,team_acronym,twitter_account,tweet_keywords,colour_primary,colour_secondary,sport,vip_list
+Green Bay Packers,GB,@Packers,#ThePackIsBack OR #PutCheeseOnEverything OR #GoPackGo OR @packers OR #greenbaypackers OR #packers OR packers,#203731,#FFB612,football,@Packers
+Detroit Lions,DET,@Lions,#OnePride OR @Lions,#0076b6,#B0B7BC,football,@Lions
+Toronto Maple Leafs,TOR,@MapleLeafs,#TMLTalk OR #LeafsForever OR @MapleLeafs OR leafs OR #leafs OR #GoLeafsGo OR #mapleleafs OR #LeafsNation,#203731,#FFFFFF,hockey,"domluszczyszyn, Steve_Dangle, IanGraph, DownGoesBrown, 3rdPeriodSuits, duarteelauraa, rahef_issa, _marlanderthews, LeafFan1917, TheLeafsIMO, TheOakLeafs, TheFlintor, MarkUkLeaf, LeafsMaz20, karlandtheleafs, mirtle, jonassiegel, kristen_shilton, reporterchris, Buds_All_Day, ATFulemin, nine2schenn, draglikepull, TLNdc,  thejustinfisher, HardevLad, jakebeleafs, spu42, account4hockey, briancrd,  team_keefe, Dylan_Morrow, GastiHGuerrero, mostlyleafies, Its_Mr_Clutch, aigemac, JuIia_Caesar, Smasha23, Billy_chilly, junotheleafs, sforys92, MerOutLoud, Leafguy38, SamL_16, marnylandersen, mikewestlakee, ElSeldo, JahidA96, patel_pujan, JaredOfLondon, dad_loop, bobbycappucino, rick_city, TorontoMapleMan, Alex_Scotian, _NickRichard, mrleaffan, Nickbarden, LeafsReplay, OfficerStephen, CoachBombayy, dirtbag_daddi, CMDeathHawk, miniaturedeth, leafermetrics, JillianMcLeod05, TMLGAL, flyontheleaf, Matt_PuckRivals, Casual_Mats, statssundin, Totally_Offside, ryanfancey, Stavros_Greer, RyanDHobart, jpolly22, jxcquelineoh, mo_toews, JSisu13, Nazzzitron, alexbienband, LittleCoding"
+Toronto Raptors,TOR,@Raptors,#Raptors OR #WeTheNorth OR #RTZ OR raptors OR @Raptors,#CE1141,#000000,basketball,"ekoreen, JLew1050, BlakeMurphyODC, william_lou, _emmajbrown, RaptorsHQ, raptorsrepublic, steven_lebron, JayJoubs, RyanJHTurvey, WalderSports, MR_STiXX, kelsea_lately, _NopeName"
+Philadelphia 76ers,PHI,@sixers,#Summer76 OR @sixers OR sixers OR 76ers OR #sixers,#006BB6,#ED174C,basketball,sixers
+Boston Bruins,BOS,@NHLbruins,#NHLBruins OR @NHLbruins OR #bruins OR bruins OR #Tuukkatime,#FFB81C,#000000,hockey,NHLbruins
+Carolina Hurricanes,CAR,@Canes,#LetsGoCanes OR #TakeWarning OR @canes OR #canes,#CC0000,#000000,hockey,"canes, MSmithCanes, CardiacCane"
+Colorado Avalanche,COL,@Avalanche,#GoAvsGo OR @Avalanche OR avs,#6F263D,#236192,hockey,avalanche
+Arizona Coyotes,ARZ,@ArizonaCoyotes,@ArizonaCoyotes OR yotes OR #yotes,#8C2633,#E2D6B5,hockey,ArizonaCoyotes
+Dallas Stars,DAL,@DallasStars,@DallasStars OR #GoStars,#006847,white,hockey,"DallasStars, MikeHeika, dmn_stars"
+Calgary Flames,CGY,@NHLFlames,@NHLFlames OR #Flames OR #goFlames,#C8102E,#F1BE48,hockey,"NHLFlames, MikeHeika"
+Vegas Golden Knights,VGK,@GoldenKnights,@GoldenKnights OR #VegasBorn,#B4975A,white,hockey,GoldenKnights
+Chicago Blackhawks,CHI,@NHLBlackhawks,@NHLBlackhawks OR #AllforOne OR #GoHawks OR #Blackhawks,#CF0A2C,white,hockey,NHLBlackhawks
+Montreal Canadiens,MTL,@CanadiensMTL,@CanadiensMTL OR #GoHabsGo OR #Habs OR Habs OR canadiens,#AF1E2D,white,hockey,CanadiensMTL
+Philadelphia Flyers,PHI,@NHLFlyers,@NHLFlyers OR #AnytimeAnywhere OR #Flyers,#F74902,black,hockey,NHLFlyers
+St. Louis Blues,STL,@StLouisBlues,@StLouisBlues OR #stlblues OR #WeAllBleedBlue OR #letsgoblues,#002F87,#FCB514,hockey,StLouisBlues
+Vancouver Canucks,VAN,@Canucks,@Canucks OR #Canucks OR nucks,#00205B,#00843D,hockey,Canucks
+Utah Jazz,UTA,@utahjazz,@utahjazz OR #TakeNote,#002B5C,#F9A01B,basketball,utahjazz
+Denver Nuggets,DEN,@nuggets,@nuggets OR #MileHighBasketball OR #nuggets,#0E2240,#FEC524,basketball,nuggets
+Tampa Bay Lightning,TBL,@TBLightning,@TBLightning OR #GoBolts OR #Bolts,#002868,white,hockey,"TBLightning, BoltsJolts, Stammer_Snipes"
+Columbus Blue Jackets,CBJ,@BlueJacketsNHL,@BlueJacketsNHL OR #CBJ OR #CBJAsOne,#002654,white,hockey,"BlueJacketsNHL, JacketsInsider"
+Brooklyn Nets,BKN,@BrooklynNets,@BrooklynNets OR #BrooklynStrong OR #nets,black,white,basketball,"BrooklynNets, TheBKGame"
