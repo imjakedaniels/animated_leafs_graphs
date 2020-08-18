@@ -1,0 +1,83 @@
+---
+title: "Untitled"
+author: "Jake Daniels"
+date: "8/9/2020"
+output: html_document
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse) # for general data manipulation in R
+library(reticulate) # to convert from Python
+library(rtweet) # to get tweets
+library(lubridate) # for date manipulation
+library(tidytext) # for tokenizing text & tf-idf
+library(gganimate) # for chart animation
+library(rvest) # for scraping website html
+library(png) # for image manipulation
+library(grid) # for custom plot manipulation
+library(extrafont) # for nice fonts
+library(ggtext) # for adding html styling in plot titles
+library(ggimage) # for social media icons
+library(shadowtext) # for a drop shadow behind main text
+theme_set(theme_light(base_family = "Montserrat ExtraBold"))
+# py_install("pandas") # run this to install pandas
+# py_install("praw") # and praw
+```
+
+# INPUT
+```{r input}
+# Game Details
+main_team <- "Toronto Raptors"
+opponent <- "Brooklyn Nets"
+official_game_start <- "2020-08-17"
+reddit_url <- "https://www.reddit.com/r/torontoraptors/comments/ibgvit/game_thread_playoffs_round_1_game_1_brooklyn_nets/"
+```
+
+```{r social_inputs}
+# Chart Markers
+social_game_start <- "1295453300075237376"
+social_game_end <- "1295490185409581058"
+```
+
+```{r fetch_data}
+# unwanted Words
+unwanted_words <- c("raps", "raptors", "#WeTheNorth", "#RTZ", "nuggets",
+                    "10u", "t.co", "gotta", "games", "dont", "amp", "period", "region", "https", "10a", "pas", "att", 
+                    "gonna", "ive", "les", "game", "hes",  "vai", "ml\U0001f4b5", "lieut", "vous", "weve", "ill", "theyre", "isnt", 
+                    "youre", "o55", "bla", "guys", "row", "usa", "och", "temporada", "07mar",  
+                    "playing", "play", "plays", "taking", "happen", "people", "teams", 
+                    "team", "people", "game", "looked", "stream", "10mar", "est", "amo", "des", "los", "bay", "cuz", "sur", "didnt", "doesnt", 
+                    "watch", "ssin", "está", "ppl", "watching", "fan", "youve", "nos", "mais", "vmies", "muito",
+                    "def", "times", "een", "tor", "sf","im", "el",  "ha", "thy", "pm", "usanhl", "app", "sugar",
+                    "de", "lots", "la", "offs", "aux", "wasnt", "ela", "jogo", "ot", "na", "doesn", "i’ve", "teams",
+                    "hockey", "team", "game", "dont", "looked", "stream",
+                    "ago", "aren", "questrade", "nhl com", "ins", "harvey's", "confirm", "dun", "nbsp",
+                    "they’re", "makes", "periods", "players", "watch", "lot", "didnt", "giphy.gif", "cbc", "def", "im", "media.giphy.com","tweet", "games",
+                    "story", "lander",  "doo",  "jpg", "person", "en", "le", "aint", "para",  "san", "based", "vis", "don", "poxa", "ov", "tt", "cest",
+                    "contre", "del","se", "live", "es", "uma", "player", "lo", "und", "cuatro", "played", "bonjour",
+                    "perdem", "geta", "basketball", "association", "link", "creates", "rbd", "pts", "reb", "werent", "pg", "sg",
+                    "al", "ast", "con", "stl", "td", "milwaukee", "philadelphia", "toronto", "puntos", "hoje", "ano", "este", "em", "gt", "este", "em",
+                    "fim", "guy", "vencer", "pra", "di", "serie", "rebotes", "je", "tiempo",  "whos", "espn","conferencia",  "bola", "mi", "partido", "quem", "jouer", "deux", "ni", "mitemps", "pode", "medio", "dey", "ils", "eine", "dort", "niveau", "os",  "eu", "fans", "igual", "placar", "porque", "ofensiva", "||", "ribaund", "asts", "fg", "victoria", "wheres", "asistencias")
+```
+
+
+```{r fetch_data}
+min_tfidf_threshold <- 3
+rescrape <- FALSE
+source("data_fetch.R")
+print(paste("Total Comments:", sum(full_data$thread_volume)))
+full_data
+beepr::beep(sound = 2)
+```
+
+```{r}
+check_df %>%
+  filter(word == "porque") %>%
+  select(text, created_at)
+```
+
+```{r}
+# Start a local job with animate_basketball.R including the environment
+#source("animate_basketball.R")
+```
+

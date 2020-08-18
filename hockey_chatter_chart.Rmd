@@ -1,0 +1,80 @@
+---
+title: "Leafs Chatter Charts"
+output: html_document
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse) # for general data manipulation in R
+library(reticulate) # to convert from Python
+library(rtweet) # to get tweets
+library(lubridate) # for date manipulation
+library(tidytext) # for tokenizing text & tf-idf
+library(gganimate) # for chart animation
+library(rvest) # for scraping website html
+library(png) # for image manipulation
+library(grid) # for custom plot manipulation
+library(extrafont) # for nice fonts
+library(ggtext) # for adding html styling in plot titles
+library(ggimage) # for social media icons
+library(shadowtext) # for a drop shadow behind main text
+theme_set(theme_light(base_family = "Montserrat ExtraBold"))
+# py_install("pandas") # run this to install pandas
+# py_install("praw") # and praw
+```
+
+# INPUT
+
+```{r game_details}
+# Game details
+main_team <- "Carolina Hurricanes"
+opponent <- "Boston Bruins"
+game_date <- as.Date("2020-08-17")
+reddit_url <- "https://www.reddit.com/r/canucks/comments/ibs4mu/gt_game_4_st_louis_blues_12_vancouver_canucks_21/"
+```
+
+```{r chart_markers}
+# Chart Markers
+social_game_start <- "1295552213616484352"
+main_team_goal_markers  <- c("1295574559081377792", "1295569815243907074", "1295560783728803840")
+opponent_goal_markers <- c("1295567444266762242")
+social_game_end <- "1295589973043937282"
+```
+
+
+```{r unwanted_words}
+# unwanted Words
+unwanted_words <- c("#leafsforever", "bruins", "canes", "flames", "stars", "dallas", "cgy",  
+                    "10u", "t.co", "gotta", "games", "hockey", "dont", "amp", "period", "region", "https", "10a", "pas", "att", 
+                    "gonna", "ive", "les", "game", "hes",  "vai", "ml\U0001f4b5", "lieut", "vous", "weve", "ill", "theyre", "isnt", 
+                    "youre", "o55", "bla", "guys", "row", "usa", "och", "temporada", "07mar",  
+                    "playing", "play", "plays", "taking", "happen", "people", "teams", 
+                    "team", "people", "game", "looked", "stream", "10mar", "est", "amo", "des", "los", "bay", "cuz", "sur", "didnt", "doesnt", 
+                    "watch", "ssin", "está", "ppl", "#leafsnation", "watching", "fan", "youve", "nos", "mais", "vmies", "muito",
+                    "def", "times", "cat", "hawks", "templeofthececi", "een", "tor", "sf","im", "el",  "ha", "thy", "pm", "usanhl", "app", "sugar", "kim",
+                    "de", "lots", "avs", "la", "offs", "aux", "wasnt", "ela", "jogo", "ot", "na", "doesn", "i’ve", "teams",
+                    "hockey", "team", "people", "game", "dont", "looked", "stream",
+                    "ago", "aren", "questrade", "nhl com", "ins", "harvey's", "confirm", "dun", "nbsp",
+                    "they’re", "makes", "periods", "players", "watch", "lot", "didnt", "giphy.gif", "cbc", "def", "im", "media.giphy.com","tweet", "games",
+                    "story", "lander",  "doo", "chicago",  "jpg", "heres", "cgy", "channel", "person", "snowmen", "played", "fans", "dos",  "san", "player", "based", "vis", "don", "nbcsn", "pts", "nbc", "fox", "dal", "hulu", "renaud", "channels",  "poxa", "ov", "tt", "cest", "raffl", "http://", "hey", "philadelphia", "saadtoewskane", "golden", "ur", "youd", "vgk", "da", "ct", "couldve", "pot", "em", "arent", "blues", "bluejackets", "id", "gdt", "tv", "ah", "ms", "guy", "os", "sports", "jackets", "bolts", "fx", "hed", "foi", "uma", "gt", "hashtag", "soccer", "bilasport", "ma", "le", "eu", "ml", "une", "pan", "en", "lavalanche",  "havent", "youtube", "thatd", "mas", "krugcarlo", "playo", "penalidade", "avesyotes", "theyd", "itll", "und", "bit", "thee", "gm", "wouldve")
+```
+
+```{r}
+min_tfidf_threshold <- 3
+rescrape <- FALSE
+source("data_fetch_hockey.R")
+beepr::beep(sound = 2)
+print(paste("Total Comments:", sum(full_data$thread_volume)))
+full_data
+```
+
+```{r}
+check_df %>%
+  filter(word == "cereal") %>%
+  select(text, created_at) #%>% View()
+```
+
+
+```{r}
+# source("animate_hockey.R")
+```
+
