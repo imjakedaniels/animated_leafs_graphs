@@ -65,7 +65,7 @@ scoring_df <-  main_team_goals  %>%
 scoring_df[, 8:9][is.na(scoring_df[, 8:9])] <- 0
 
 score_sequence <- scoring_df %>%
-  mutate(running_score = str_glue("{main_team} - {opponent}"))
+  mutate(running_score = str_glue("{main_team} - {opponent}")) 
 
 ### HIGHLIGHT WHEN GOALS ARE SCORED
 running_game_score_df <- score_sequence %>%
@@ -108,6 +108,7 @@ m <-linesGrob(y = c(0, 1.5),x = c(-.015, .015),  gp = gpar(col = I(main_team_dat
 b <-linesGrob(y = c(0, 1.5),x = c(-.015, .015),  gp = gpar(col = I(opponent_team_data$colour_primary), lwd = 2.5)) 
 
 base_plot <- full_data %>%
+ # filter(interval > "2020-08-18 19:58:00") %>%
   ggplot(aes(x = interval, y = thread_volume)) +
   ### BG LOGOS
   annotation_custom(main_logo, 
@@ -186,7 +187,7 @@ base_plot <- full_data %>%
   
   ### TITLE 
   labs(title = str_glue("<b style='color:black;font-size:20px'>NHL</b>
-                         <b style='color:#b5b7bb;font-size:16px'>2019-20 Playoffs</b>
+                         <b style='color:#b5b7bb;font-size:17px'>2020 PLAYOFFS</b>
                          <br>
                          <b style='font-size:20px'>CHATTER CHARTS"),
                         
@@ -224,7 +225,7 @@ animated_plot <- base_plot +
 # spreadsheet for people to enter themselves into their team's vip list
 
 animate(plot = animated_plot,
-        fps = 25, duration = 35,
+        fps = 25, duration = 38,
         height = 608, width = 1080,  units = 'px', type = "cairo", res = 144,
         renderer = av_renderer(str_glue("animations/hockey-{data_source}-{main_team_file_format}-{opponent_file_format}-{game_date}.mp4")))
 
