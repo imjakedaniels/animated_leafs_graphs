@@ -161,7 +161,7 @@ base_plot <- full_data %>%
  
   geom_rect(data = intermision_df, 
             aes(NULL, NULL, xmin=start, xmax=end), ymin=-Inf, ymax=Inf, 
-            fill='grey', alpha=0.3) +
+            fill='grey', alpha=0.2) +
  
   ### BG LOGOS
   annotation_custom(main_logo, 
