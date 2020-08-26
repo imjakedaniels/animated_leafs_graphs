@@ -28,7 +28,7 @@ main_image <- image_paths %>%
   filter(str_detect(path, str_replace_all(main_team, " ", "_")))
 
 m <- readPNG(main_image$path)
-w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * 0.6), nrow = dim(m)[1]) 
+w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * 0.7), nrow = dim(m)[1]) 
 main_logo <- rasterGrob(w, interpolate = TRUE)
 
 # find opponent image 
@@ -37,7 +37,7 @@ opponent_image <- image_paths %>%
   filter(str_detect(path, str_replace_all(opponent, " ", "_")))
 
 m <- readPNG(opponent_image$path)
-w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * 0.6), nrow = dim(m)[1]) 
+w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * 0.7), nrow = dim(m)[1]) 
 opponent_logo <- rasterGrob(w, interpolate = TRUE)
 
 ######
@@ -60,18 +60,38 @@ scoring_df <-  main_team_goals  %>%
   arrange(created_at) %>%
   mutate(score = cumsum(points)) %>%
   spread(team, score) %>%
-  fill(main_team, opponent)
+  fill(length(.), length(.) - 1)
 
-scoring_df[, 8:9][is.na(scoring_df[, 8:9])] <- 0
+scoring_df[, 8][is.na(scoring_df[, 8])] <- 0
 
-score_sequence <- scoring_df %>%
-  mutate(running_score = str_glue("{main_team} - {opponent}")) 
+if (length(scoring_df) == 9) {
+  scoring_df[, 9][is.na(scoring_df[, 9])] <- 0
+}
+
+if (length(scoring_df) == 9) {
+  
+  score_sequence <- scoring_df %>%
+    mutate(running_score = str_glue("{main_team} - {opponent}")) 
+  
+} else {
+  
+  if (sum(str_detect(names(scoring_df), "main_team")) == 1) {
+    score_sequence <- scoring_df %>%
+      mutate(running_score = str_glue("{main_team} - 0")) 
+    
+  } else {
+    score_sequence <- scoring_df %>%
+      mutate(running_score = str_glue("0 - {opponent}")) 
+    
+  }
+}
 
 ### HIGHLIGHT WHEN GOALS ARE SCORED
 running_game_score_df <- score_sequence %>%
   rename(interval = created_at) %>%
-  bind_rows(data.frame(interval = .$interval + minutes(2), # iser
-                       running_score = .$running_score)) %>%
+  mutate(running_score = as.character(running_score)) %>%
+  bind_rows(data.frame(interval = score_sequence$created_at + minutes(2), # iser
+                       running_score = as.character(score_sequence$running_score))) %>%
   mutate(board_size = 15) %>%
   full_join(full_data, by = "interval") %>%
   arrange(interval) %>%
@@ -82,6 +102,7 @@ running_game_score_df <- score_sequence %>%
   mutate(running_score = ifelse(is.na(running_score), "0 - 0", running_score)) %>%
   mutate(board_size = ifelse(running_score == "0 - 0", 12, board_size)) %>%
   select(interval, running_score, board_size)
+  # mutate(running_score = ifelse(interval == "2020-08-24 23:12:02", "2 - 2", running_score))
 
 final_score_text <- running_game_score_df %>%
   mutate(text = ifelse(interval >= game_end_tweet$created_at, "Final", ""))
@@ -104,12 +125,44 @@ reddit_brand <- rasterGrob(reddit_png, interpolate = TRUE,
                            x = unit(1,"npc"), y = unit(1,"npc"),
                            hjust = 0.9, vjust= 0)
 
+## Some random lines
 m <-linesGrob(y = c(0, 1.5),x = c(-.015, .015),  gp = gpar(col = I(main_team_data$colour_primary), lwd = 2.5)) 
 b <-linesGrob(y = c(0, 1.5),x = c(-.015, .015),  gp = gpar(col = I(opponent_team_data$colour_primary), lwd = 2.5)) 
 
+## Intermission markers
+period_marker_df <- twitter_timeline %>%
+  filter(status_id %in% period_markers)
+
+intermission_one <- period_marker_df[1,] %>% cbind(period_marker_df[2,])
+intermission_df <- intermission_one[,c(2,5)]
+
+intermission_two <- period_marker_df[3,] %>% cbind(period_marker_df[4,])
+
+if (length(period_markers) == 6 ) {
+  
+  overtime <- period_marker_df[5,] %>% cbind(period_marker_df[6,])
+  
+  intermision_df <-  bind_rows(intermission_df, intermission_two[,c(2,5)]) %>%
+    bind_rows(overtime[,c(2,5)]) %>%
+    rename(start = created_at.1, end = created_at)
+  
+} else {
+  
+  intermision_df <-  bind_rows(intermission_df, intermission_two[,c(2,5)]) %>%
+    rename(start = created_at.1, end = created_at)
+  
+}
+
+
+
 base_plot <- full_data %>%
- # filter(interval > "2020-08-18 19:58:00") %>%
+  # filter(interval < "2020-08-24 22:04:00") %>%
   ggplot(aes(x = interval, y = thread_volume)) +
+ 
+  geom_rect(data = intermision_df, 
+            aes(NULL, NULL, xmin=start, xmax=end), ymin=-Inf, ymax=Inf, 
+            fill='grey', alpha=0.3) +
+ 
   ### BG LOGOS
   annotation_custom(main_logo, 
                     xmin = mean(c(game_start_tweet$created_at, game_end_tweet$created_at)) - 100,  
@@ -134,7 +187,7 @@ base_plot <- full_data %>%
   ### GAME DURATION MARKERS
   geom_vline(data = game_time_df, 
              aes(xintercept = created_at)) +
-  
+
   ### GOALS
   geom_vline(data = scoring_df, 
              aes(xintercept = created_at,
@@ -227,6 +280,7 @@ animated_plot <- base_plot +
 animate(plot = animated_plot,
         fps = 25, duration = 38,
         height = 608, width = 1080,  units = 'px', type = "cairo", res = 144,
-        renderer = av_renderer(str_glue("animations/hockey-{data_source}-{main_team_file_format}-{opponent_file_format}-{game_date}.mp4")))
+        renderer = av_renderer(str_glue("animations/hockey-{main_team_file_format}-{opponent_file_format}-{game_date}.mp4")))
 
 beepr::beep(sound = 2)  
+

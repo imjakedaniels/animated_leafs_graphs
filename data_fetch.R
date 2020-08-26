@@ -47,6 +47,8 @@ client_secret_reddit <- Sys.getenv("CLIENT_SECRET_REDDIT")
 
 if (file.exists(here::here(str_glue("game-threads/{sport}-gamethread-{main_team_file_format}-{opponent_file_format}-{game_date}.csv"))) == FALSE) {
   
+  tictoc::tic("Scraping Reddit Thread")
+  
   source_python("reddit_game_thread_comment_scraper.py")
   
   reddit_df <- py$topics_data %>%
@@ -57,18 +59,24 @@ if (file.exists(here::here(str_glue("game-threads/{sport}-gamethread-{main_team_
   
   write_csv(reddit_df, path = here::here(str_glue("game-threads/{sport}-gamethread-{main_team_file_format}-{opponent_file_format}-{game_date}.csv")))
   
+  tictoc::toc()
+  
 } else {
   
   reddit_df <- read_csv(here::here(str_glue("game-threads/{sport}-gamethread-{main_team_file_format}-{opponent_file_format}-{game_date}.csv")))
   
 }
 
-
 if (file.exists(here::here(str_glue("tweets/{sport}-tweets-{main_team_file_format}-{opponent_file_format}-{game_date}.csv"))) == FALSE | rescrape == TRUE) {
+  
+
+  tictoc::tic("Gathering Tweets")
   
   source("twitter_tweet_scraper.R")
   
   write_csv(twitter_df, path = here::here(str_glue("tweets/{sport}-tweets-{main_team_file_format}-{opponent_file_format}-{game_date}.csv")))
+  
+  tictoc::toc()
   
 } else {
   
@@ -77,8 +85,9 @@ if (file.exists(here::here(str_glue("tweets/{sport}-tweets-{main_team_file_forma
 }
 
 raw_df <- read_csv(here::here(str_glue("tweets/{sport}-tweets-{main_team_file_format}-{opponent_file_format}-{game_date}.csv"))) %>%
-  bind_rows(read_csv(here::here(str_glue("game-threads/{sport}-gamethread-{main_team_file_format}-{opponent_file_format}-{game_date}.csv")))) %>%
-  mutate(created_at = force_tz(created_at, "America/New_York") - hours(4))
+  bind_rows(read_csv(here::here(str_glue("game-threads/{sport}-gamethread-{main_team_file_format}-{opponent_file_format}-{game_date}.csv"))), .id = "source") %>%
+  mutate(created_at = force_tz(created_at, "America/New_York") - hours(4),
+         source = ifelse(source == 1, "twitter", "reddit"))
 
 # get the recent 100 tweets by the official account
 twitter_timeline <- get_timeline(team_twitter_accounts, n = 200, token = twitter_token) %>%

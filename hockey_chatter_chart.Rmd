@@ -24,52 +24,49 @@ theme_set(theme_light(base_family = "Montserrat ExtraBold"))
 
 # INPUT
 
-```{r game_details}
-# Game details
-main_team <- "Carolina Hurricanes"
-opponent <- "Boston Bruins"
-game_date <- as.Date("2020-08-17")
-reddit_url <- "https://www.reddit.com/r/canucks/comments/ibs4mu/gt_game_4_st_louis_blues_12_vancouver_canucks_21/"
+```{r}
+main_team  <- "Vancouver Canucks"
+opponent <- "Vegas Golden Knights"
+game_date <- as.Date("2020-08-25")
+reddit_url <- "https://www.reddit.com/r/canucks/comments/igpg8w/gt_game_2_vancouver_canucks_01_vegas_golden/"
+# "https://www.reddit.com/r/goldenknights/comments/igo1it/playoff_game_thread_game_2_vancouver_canucks_0_1/"
 ```
 
-```{r chart_markers}
-# Chart Markers
-social_game_start <- "1295552213616484352"
-main_team_goal_markers  <- c("1295574559081377792", "1295569815243907074", "1295560783728803840")
-opponent_goal_markers <- c("1295567444266762242")
-social_game_end <- "1295589973043937282"
+```{r}
+# Chart Markers
+social_game_start <- "1298437895661838338"
+main_team_goal_markers <- c("1298475042842394624", "1298465863301914624", "1298459984900968448", "1298442402709958656", "1298438402728062976")
+opponent_goal_markers <- c("1298474401378099200", "1298454063751651329")
+social_game_end <- "1298475349257277440"
+
+                        # end of 1st,          start of 2nd,         end of 2nd,             start of 3rd
+period_markers <- c("1298446167668174848", "1298450855507550208", "1298461345419948032", "1298465668610707464")
 ```
 
 
-```{r unwanted_words}
+```{r}
 # unwanted Words
-unwanted_words <- c("#leafsforever", "bruins", "canes", "flames", "stars", "dallas", "cgy",  
-                    "10u", "t.co", "gotta", "games", "hockey", "dont", "amp", "period", "region", "https", "10a", "pas", "att", 
-                    "gonna", "ive", "les", "game", "hes",  "vai", "ml\U0001f4b5", "lieut", "vous", "weve", "ill", "theyre", "isnt", 
-                    "youre", "o55", "bla", "guys", "row", "usa", "och", "temporada", "07mar",  
-                    "playing", "play", "plays", "taking", "happen", "people", "teams", 
-                    "team", "people", "game", "looked", "stream", "10mar", "est", "amo", "des", "los", "bay", "cuz", "sur", "didnt", "doesnt", 
-                    "watch", "ssin", "está", "ppl", "#leafsnation", "watching", "fan", "youve", "nos", "mais", "vmies", "muito",
-                    "def", "times", "cat", "hawks", "templeofthececi", "een", "tor", "sf","im", "el",  "ha", "thy", "pm", "usanhl", "app", "sugar", "kim",
-                    "de", "lots", "avs", "la", "offs", "aux", "wasnt", "ela", "jogo", "ot", "na", "doesn", "i’ve", "teams",
-                    "hockey", "team", "people", "game", "dont", "looked", "stream",
-                    "ago", "aren", "questrade", "nhl com", "ins", "harvey's", "confirm", "dun", "nbsp",
-                    "they’re", "makes", "periods", "players", "watch", "lot", "didnt", "giphy.gif", "cbc", "def", "im", "media.giphy.com","tweet", "games",
-                    "story", "lander",  "doo", "chicago",  "jpg", "heres", "cgy", "channel", "person", "snowmen", "played", "fans", "dos",  "san", "player", "based", "vis", "don", "nbcsn", "pts", "nbc", "fox", "dal", "hulu", "renaud", "channels",  "poxa", "ov", "tt", "cest", "raffl", "http://", "hey", "philadelphia", "saadtoewskane", "golden", "ur", "youd", "vgk", "da", "ct", "couldve", "pot", "em", "arent", "blues", "bluejackets", "id", "gdt", "tv", "ah", "ms", "guy", "os", "sports", "jackets", "bolts", "fx", "hed", "foi", "uma", "gt", "hashtag", "soccer", "bilasport", "ma", "le", "eu", "ml", "une", "pan", "en", "lavalanche",  "havent", "youtube", "thatd", "mas", "krugcarlo", "playo", "penalidade", "avesyotes", "theyd", "itll", "und", "bit", "thee", "gm", "wouldve")
+unwanted_words <- c("#leafsforever", "10u", "t.co", "gotta", "games", "hockey", "dont", "amp", "period", "region", "https", "10a", "pas", "att", "gonna", "ive", "les", "game", "hes",  "vai", "ml\U0001f4b5", "lieut", "vous", "weve", "ill", "theyre", "isnt", "youre", "o55", "bla", "guys", "row", "usa", "och", "temporada", "07mar", "playing", "play", "plays", "taking", "happen", "people", "teams", "team", "people", "game", "looked", "stream", "10mar", "est", "amo", "des", "los", "bay", "cuz", "sur", "didnt", "doesnt", "watch", "ssin", "está", "ppl", "#leafsnation", "watching", "fan", "youve", "nos", "mais", "vmies", "muito", "def", "times", "cat", "templeofthececi", "een", "tor", "sf","im", "el",  "ha", "thy", "pm", "usanhl", "app", "sugar", "kim", "de", "la", "offs", "aux", "wasnt", "ela", "jogo", "ot", "na", "doesn", "i’ve", "teams", "hockey", "team", "people", "game", "dont", "looked", "stream","ago", "aren", "questrade", "nhl com", "ins", "harvey's", "confirm", "dun", "nbsp", "they’re", "makes", "periods", "players", "watch", "lot", "didnt", "giphy.gif", "cbc", "def", "im", "media.giphy.com","tweet", "games", "story", "lander",  "doo",  "jpg", "heres",  "channel", "person", "snowmen", "played", "dos",  "san", "player", "based", "vis", "don", "nbcsn", "pts", "nbc", "fox", "dal", "hulu", "renaud", "channels",  "poxa", "ov", "tt", "cest", "raffl", "http://", "hey",  "saadtoewskane", "golden", "ur", "youd", "da", "ct", "couldve", "em", "arent", "id", "gdt", "tv", "ah", "ms", "guy", "os", "sports", "fx", "hed", "foi", "uma", "gt", "hashtag", "soccer", "bilasport", "ma", "le", "eu", "ml", "une", "pan", "en", "lavalanche",  "havent", "youtube", "thatd", "mas", "krugcarlo", "playo", "penalidade", "theyd", "itll", "und", "bit", "ich", "ont", "ja", "votre", "tu", "mon", "nous", "thee", "leur", "wouldve", "wont", "contre", "shes", "wouldnt", "por", "buts", "keeping", "quon", "ils",  "mans", "mid", "pic", "penis", "ac", "dar",  "oven", "ainda", "du", "password", "sourdough", "hasnt", "rn", "essa", "qui", "playoff", "phi",  "todo", "si", "pra", "meant", "emu", "words",  "mesmo", "vamos", "olha", "nhl", "med", "nie", "aula", "vpn", "whats", "col", "au", "je",  "snp", "faire", "avg", "twitter", "talking", "list", "min", "ai", "round", "wheres","left", "song", "aug", "sn",  "meet", "bos", "til", "qf", "il", "mine", "shouldnt","aurait", "pc", "con", "bien", "esti", "veux", "veut", "ni", "account", "spending", "cinq", "jouer", "paypal", "juste", "tick", "buying", "idea", "sont", "mal", "sir", "suspendu", "retrieved", "arbitres", "chino", "theyve", "allez", "aint", "avs", "dallas", "gif", "stars", "pt", "doit", "east", "cough", "blue", "sandwich", "youll", "kennedy", "nordstromkuralywagner", "theyll", "ope", "tonights", "se", "australia", "briga", "local", "day", "wear", "episode", "raiders", "supposed", "sunday", "dbz", "upvotes", "likes", "sap", "yr", "question", "cc", "dip", "covering",  "pelechpulock", "page", "description", "sold",  "season", "convention", "week", "rhockey", "sunflower", "las", "gols", "flyers", "te",  "bem", "seeds", "word", "pct", "numerique", "shouldve",  "dan", "sv",  "vegas", "knights", "van", "vgk", "nucks",  "canucks")
+
+c("tampa", "boston",  "lightning", "bruins", "bolts", "matter", "fans", "canes",  "flyers", "cgy", "pc",  "gif", "blues","dallas", "cgy", "chicago", "philadelphia", "blues", "flyers", "philly", "philadelphia", "isles", "islanders")
+
+# remove team-specific words like colorado, arizona, habs, etc. into the metadata
 ```
 
 ```{r}
 min_tfidf_threshold <- 3
 rescrape <- FALSE
-source("data_fetch_hockey.R")
+source("data_fetch.R")
 beepr::beep(sound = 2)
 print(paste("Total Comments:", sum(full_data$thread_volume)))
 full_data
+
+# use .id arg in bind_rows to seperate twitter/reddit and save into csv
 ```
 
 ```{r}
 check_df %>%
-  filter(word == "cereal") %>%
+  filter(word == "sausage") %>%
   select(text, created_at) #%>% View()
 ```
 
