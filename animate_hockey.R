@@ -15,14 +15,14 @@ theme_set(theme_light(base_family = "Montserrat ExtraBold"))
 # py_install("pandas") # run this to install pandas
 # py_install("praw") # and praw
 
-## Team Logos
-# lookup all team image files in the repo
+### TEAM LOGOS
+## lookup all team image files in the repo
 files <- file.info(list.files(str_glue("{here::here()}/team_images"), 
                               full.names = TRUE))
 
 image_paths <- data.frame(path = rownames(files))
 
-# find main team
+## HOME TEAM
 main_image <- image_paths %>%
   mutate_if(is.factor, as.character) %>%
   filter(str_detect(path, str_replace_all(main_team, " ", "_")))
@@ -31,7 +31,7 @@ m <- readPNG(main_image$path)
 w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * 0.7), nrow = dim(m)[1]) 
 main_logo <- rasterGrob(w, interpolate = TRUE)
 
-# find opponent image 
+## OPPONENT
 opponent_image <- image_paths %>%
   mutate_if(is.factor, as.character) %>%
   filter(str_detect(path, str_replace_all(opponent, " ", "_")))
@@ -42,13 +42,13 @@ opponent_logo <- rasterGrob(w, interpolate = TRUE)
 
 ######
 
+### FIND GOALS
 goal_df <- main_team_goals  %>%
   bind_rows(opponent_goals, .id = "team") %>%
   mutate(linetype = ifelse(team == 1, 2, 5),
          colour = ifelse(team == 1, main_colour, opponent_colour))
 
-### SCORING
-### CLEANING
+### CREATE SCORING
 scoring_df <-  main_team_goals  %>%
   bind_rows(opponent_goals, .id = "team") %>%
   mutate(team = ifelse(team == 1, "main_team", "opponent")) %>%
@@ -64,8 +64,12 @@ scoring_df <-  main_team_goals  %>%
 
 scoring_df[, 8][is.na(scoring_df[, 8])] <- 0
 
+## OVERTIME FIX
+
 if (length(scoring_df) == 9) {
+  
   scoring_df[, 9][is.na(scoring_df[, 9])] <- 0
+  
 }
 
 if (length(scoring_df) == 9) {
@@ -76,17 +80,19 @@ if (length(scoring_df) == 9) {
 } else {
   
   if (sum(str_detect(names(scoring_df), "main_team")) == 1) {
+    
     score_sequence <- scoring_df %>%
       mutate(running_score = str_glue("{main_team} - 0")) 
     
   } else {
+    
     score_sequence <- scoring_df %>%
       mutate(running_score = str_glue("0 - {opponent}")) 
     
   }
 }
 
-### HIGHLIGHT WHEN GOALS ARE SCORED
+### SCOREBOARD - HIGHLIGHT WHEN GOALS ARE SCORED
 running_game_score_df <- score_sequence %>%
   rename(interval = created_at) %>%
   mutate(running_score = as.character(running_score)) %>%
@@ -101,12 +107,14 @@ running_game_score_df <- score_sequence %>%
   fill(running_score, .direction = "down") %>%
   mutate(running_score = ifelse(is.na(running_score), "0 - 0", running_score)) %>%
   mutate(board_size = ifelse(running_score == "0 - 0", 12, board_size)) %>%
-  select(interval, running_score, board_size)
-  # mutate(running_score = ifelse(interval == "2020-08-24 23:12:02", "2 - 2", running_score))
+  select(interval, running_score, board_size) 
+  # mutate(running_score = ifelse(interval == "2020-08-30 20:16:47" | interval == "2020-08-30 20:18:00", "2 - 5", running_score))
 
+### "FINAL" ON SCOREBOARD
 final_score_text <- running_game_score_df %>%
   mutate(text = ifelse(interval >= game_end_tweet$created_at, "Final", ""))
 
+### TEAM GOAL LABELS
 team_scoring_markers <- scoring_df %>%
   select(created_at, colour) %>%
   mutate(team_acronym = ifelse(colour == main_team_data$colour_primary,  main_team_data$team_acronym, opponent_team_data$team_acronym),
@@ -117,7 +125,7 @@ team_scoring_markers <- scoring_df %>%
   inner_join(running_game_score_df, by = "interval") %>%
   rename(created_at = interval)
 
-## Sponsor Banner (future)
+### SPONSOR BANNER
 reddit_png <- readPNG(here::here("social_images/reddit_brand.png"))
 
 reddit_brand <- rasterGrob(reddit_png, interpolate = TRUE, 
@@ -125,20 +133,28 @@ reddit_brand <- rasterGrob(reddit_png, interpolate = TRUE,
                            x = unit(1,"npc"), y = unit(1,"npc"),
                            hjust = 0.9, vjust= 0)
 
-## Some random lines
+### TESTING
 m <-linesGrob(y = c(0, 1.5),x = c(-.015, .015),  gp = gpar(col = I(main_team_data$colour_primary), lwd = 2.5)) 
 b <-linesGrob(y = c(0, 1.5),x = c(-.015, .015),  gp = gpar(col = I(opponent_team_data$colour_primary), lwd = 2.5)) 
 
-## Intermission markers
+### Intermission markers
 period_marker_df <- twitter_timeline %>%
-  filter(status_id %in% period_markers)
+  filter(status_id %in% period_markers) %>%
+  arrange(created_at)
 
 intermission_one <- period_marker_df[1,] %>% cbind(period_marker_df[2,])
 intermission_df <- intermission_one[,c(2,5)]
 
 intermission_two <- period_marker_df[3,] %>% cbind(period_marker_df[4,])
 
-if (length(period_markers) == 6 ) {
+if (length(period_markers) == 4) {
+  
+  intermision_df <-  bind_rows(intermission_df, intermission_two[,c(2,5)]) %>%
+  rename(start = created_at.1, end = created_at)
+
+}
+
+if (length(period_markers) == 6) {
   
   overtime <- period_marker_df[5,] %>% cbind(period_marker_df[6,])
   
@@ -146,22 +162,29 @@ if (length(period_markers) == 6 ) {
     bind_rows(overtime[,c(2,5)]) %>%
     rename(start = created_at.1, end = created_at)
   
-} else {
+} 
+
+if (length(period_markers) == 8) {
+  
+  overtime <- period_marker_df[5,] %>% cbind(period_marker_df[6,])
+  
+  double_overtime <- period_marker_df[7,] %>% cbind(period_marker_df[8,])
   
   intermision_df <-  bind_rows(intermission_df, intermission_two[,c(2,5)]) %>%
+    bind_rows(overtime[,c(2,5)]) %>%
+    bind_rows(double_overtime[,c(2,5)]) %>%
     rename(start = created_at.1, end = created_at)
   
 }
 
-
-
+### PLOT
 base_plot <- full_data %>%
-  # filter(interval < "2020-08-24 22:04:00") %>%
-  ggplot(aes(x = interval, y = thread_volume)) +
+  # filter(interval > "2020-08-30 18:00:00") %>%
+  ggplot(aes(x = interval, y = interval_volume)) +
  
   geom_rect(data = intermision_df, 
             aes(NULL, NULL, xmin=start, xmax=end), ymin=-Inf, ymax=Inf, 
-            fill='grey', alpha=0.2) +
+            fill = 'grey', alpha = 0.2) +
  
   ### BG LOGOS
   annotation_custom(main_logo, 
@@ -204,7 +227,7 @@ base_plot <- full_data %>%
                  label = team_acronym),
              label.padding = unit(0.15, "lines"), 
              label.r = unit(0.12, "lines"),
-             label.size = 0.1, size = 3, family = "Oswald", ) +
+             label.size = 0.1, size = 3, family = "Oswald") +
   
    geom_text(data = final_score_text,
           aes(x = mean(c(game_start_tweet$created_at, game_end_tweet$created_at)),
@@ -220,11 +243,10 @@ base_plot <- full_data %>%
                 size = I(board_size)), 
             colour = "white", family = "Quantico", vjust = -0.7, show.legend = FALSE) +
 
-
   ### LINE
   geom_line(color = main_colour, size = 2) +
   
-  ### LINE SOCIAL ICON
+  ### LINE ICON
   geom_image(aes(image = "emoji/hockey_puck.png")) +
   
   ### WORDS
@@ -244,7 +266,7 @@ base_plot <- full_data %>%
                          <br>
                          <b style='font-size:20px'>CHATTER CHARTS"),
                         
-       caption = str_glue("Showing the most statistically important word every two-minutes using {scales::comma(sum(full_data$thread_volume))} real-time social media comments."),
+       caption = str_glue("Showing the most statistically important word every two-minutes using {scales::comma(sum(full_data$interval_volume))} real-time social media comments."),
        x= "",
        y = "") +
   
@@ -265,22 +287,14 @@ base_plot <- full_data %>%
         plot.caption = element_text(size = 8, family = "Inter", hjust = 0, vjust = 8),
         plot.margin = margin(0.5, 1.5, 0.1, 0.5, "cm")) 
 
-
 ### ANIMATE
 animated_plot <- base_plot +
   transition_reveal(interval) + # follow the interval
   ease_aes("linear") # fixed speed
-
-# Use #HockeyTwitter
-# Use #StanleyCup
-# Say "follow me on Twitter/Instagram @chattercharts"
-
-# spreadsheet for people to enter themselves into their team's vip list
 
 animate(plot = animated_plot,
         fps = 25, duration = 38,
         height = 608, width = 1080,  units = 'px', type = "cairo", res = 144,
         renderer = av_renderer(str_glue("animations/hockey-{main_team_file_format}-{opponent_file_format}-{game_date}.mp4")))
 
-beepr::beep(sound = 2)  
-
+beepr::beep(sound = 2)
