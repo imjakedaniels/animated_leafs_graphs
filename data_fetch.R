@@ -87,11 +87,10 @@ raw_df <- read_csv(here::here(str_glue("tweets/{sport}-tweets-{main_team_file_fo
   mutate(created_at = force_tz(created_at, "America/New_York") - hours(4),
          source = ifelse(source == 1, "twitter", "reddit"))
 
-
 ### CREATE GAME MARKERS
 
-# get the recent 200 tweets by the official accounts
-twitter_timeline <- get_timeline(team_twitter_accounts, n = 200, token = twitter_token) %>%
+# get  recent tweets by the official accounts
+twitter_timeline <- get_timeline(team_twitter_accounts, n = 3500, token = twitter_token) %>%
   select(status_id, created_at, text) %>%
   mutate(created_at = with_tz(ymd_hms(created_at), tzone = "America/New_York")) %>%
   filter(created_at >= game_date,
@@ -99,13 +98,25 @@ twitter_timeline <- get_timeline(team_twitter_accounts, n = 200, token = twitter
 
 # goals
 if (sport == "hockey") {
+  
+  main_team_goals <- twitter_timeline %>%
+    filter(status_id %in% main_team_goal_markers)
+  
+  opponent_goals <- twitter_timeline %>%
+    filter(status_id %in% opponent_goal_markers)
+  
+}
 
-main_team_goals <- twitter_timeline %>%
-  filter(status_id %in% main_team_goal_markers)
-
-opponent_goals <- twitter_timeline %>%
-  filter(status_id %in% opponent_goal_markers)
-
+if (sport == "football") {
+  
+  main_team_scoring <- twitter_timeline %>%
+    filter(status_id %in% main_team_td | status_id %in% main_team_fg) %>%
+    mutate(score_type = ifelse(status_id %in% main_team_td, "touchdown", "field goal"))
+  
+  opponent_scoring <-  twitter_timeline %>%
+    filter(status_id %in% opponent_td | status_id %in% opponent_fg) %>%
+    mutate(score_type = ifelse(status_id %in% opponent_td, "touchdown", "field goal"))
+  
 }
 
 # game time
@@ -138,12 +149,58 @@ interval_volume_df <- rounded_intervals_df %>%
 
 ### TOKENIZE COMMENTS
 
+unwanted_words <- c("#leafsforever", "10u", "t.co", "gotta", "games", "hockey", "dont", "amp", "period", 
+                    "region", "https", "10a", "pas", "att", "gonna", "ive", "les", "game", "hes",  "vai", 
+                    "ml\U0001f4b5", "lieut", "vous", "weve", "ill", "theyre", "isnt", "youre", "o55", "bla", 
+                    "guys", "row", "usa", "och", "temporada", "07mar", "playing", "play", "plays", "taking", 
+                    "happen", "people", "teams", "team", "people", "game", "looked", "stream", "10mar", "est", 
+                    "amo", "des", "los", "bay", "cuz", "sur", "didnt", "doesnt", "watch", "ssin", "está", "ppl", 
+                    "#leafsnation", "watching", "fan", "youve", "nos", "mais", "vmies", "muito", "def", "times", 
+                    "cat", "templeofthececi", "een", "tor", "sf","im", "el",  "ha", "thy", "pm", "usanhl", "app", 
+                    "sugar", "kim", "de", "la", "offs", "aux", "wasnt", "ela", "jogo", "ot", "na", "doesn", "i’ve", 
+                    "teams", "hockey", "team", "people", "game", "dont", "looked", "stream","ago", "aren", 
+                    "questrade", "nhl com", "ins", "harvey's", "confirm", "dun", "nbsp", "they’re", "makes", 
+                    "periods", "players", "watch", "lot", "didnt", "giphy.gif", "cbc", "def", "im", 
+                    "media.giphy.com","tweet", "games", "story", "lander",  "doo",  "jpg", "heres",  "channel", 
+                    "person", "snowmen", "played", "dos",  "san", "player", "based", "vis", "don", "pts", "fox", 
+                    "dal", "hulu", "renaud", "channels",  "poxa", "ov", "tt", "cest", "raffl", "http://", "hey", 
+                    "saadtoewskane", "golden", "ur", "youd", "da", "ct", "couldve", "em", "arent", "id", "gdt", 
+                    "tv", "ah", "ms", "guy", "os", "sports", "fx", "hed", "foi", "uma", "gt", "hashtag", "soccer", 
+                    "bilasport", "ma", "le", "eu", "ml", "une", "pan", "en", "lavalanche",  "havent", "youtube", 
+                    "thatd", "mas", "krugcarlo", "playo", "penalidade", "theyd", "itll", "und", "bit", "ich", 
+                    "ont", "ja", "votre", "tu", "mon", "nous", "thee", "leur", "wouldve", "wont", "contre", "shes", 
+                    "wouldnt", "por", "buts", "keeping", "quon", "ils",  "mans", "mid", "pic", "penis", "ac", 
+                    "dar",  "oven", "ainda", "du", "password", "sourdough", "hasnt", "rn", "essa", "qui", "playoff", 
+                    "phi",  "todo", "si", "pra", "meant", "emu", "words",  "mesmo", "vamos", "olha", "nhl", "med", 
+                    "nie", "aula", "vpn", "whats", "col", "au", "je",  "snp", "faire", "avg", "twitter", "talking", 
+                    "list", "min", "ai", "round", "wheres","left", "song", "homo", "aug", "sn",  "meet", "bos", 
+                    "til", "qf", "il", "mine", "shouldnt","aurait", "pc", "con", "bien", "esti", "veux", "veut", 
+                    "ni", "account", "spending", "cinq", "jouer", "paypal", "juste", "tick", "buying", "idea", 
+                    "sont", "mal", "sir", "suspendu", "retrieved", "arbitres", "chino", "theyve", "para", "allez", 
+                    "aint", "gif", "pt", "doit", "east", "cough", "blue", "sandwich", "youll", "kennedy", 
+                    "nordstromkuralywagner", "theyll", "ope", "tonights", "se", "australia", "briga", "local", 
+                    "day", "wear", "episode", "raiders", "supposed", "sunday", "dbz", "upvotes", "likes", "sap", 
+                    "yr", "question", "sc", "cc", "dip", "covering",  "pelechpulock", "page", "description", 
+                    "sold",  "season", "convention", "smithd", "week", "rhockey", "sunflower", "las", "gols", 
+                    "te",  "bem", "seeds", "word", "pct", "numerique", "shouldve", "fiq", "mount", "cu", "lots", 
+                    "told", "lag", "sharks", "heard", "dan", "sv",  "kitchen", "thread", "taxidermy", "nyt",
+                    "goina", "tb", "muitos", "||", "tom", "din", "portland",  "ol", "calma", "sexta", "ty", 
+                    "pero", "comment", "nao", "avs",  "fim", "van", "mtv", "detroit", "grammar", "tara", 
+                    "pritteee", "red", "baba", "lauren", "nhls", "pelechgood", "findinspireinformempower", 
+                    "reply", "monday", "vgk", "pee", "knight", "weeks", "dodgers","minutos", "fiverr", "rim", 
+                    "utah", "jai", "av", "bon", "gp", "marxist", "jerseys", "download", "vou", "brings", "mil", 
+                    "del", "jogos", "emoji", "ca", "alexa", "days", "conf", "tout", "partido", "apr", "sput", 
+                    "dem", "ad", "ish", "land", "oc", "hr", "serie")
+
 unnested_df <- rounded_intervals_df %>%
   filter(!str_detect(text, "#ThePressRowShow")) %>% # remove any spam accounts here
-  filter(!str_detect(text, ": Bruins 2, Lightning 2 - ")) %>%
-  filter(!str_detect(text, "PXU District wide Virtual College")) %>%
+  filter(!str_detect(text, "#Chatterstats")) %>%
+  filter(!str_detect(text, "#LC Report Card")) %>%
+  filter(!str_detect(text, "@CIA")) %>%
+  filter(!str_detect(text, "@StapeAthletic")) %>%
   unnest_tokens(word, text, token = "tweets", drop = FALSE) %>%
   filter(!word %in% unwanted_words, # drop unwanted words 
+         !word %in% unwanted_words_again,
          nchar(word) >= 2, # words must be at least 2 characters
          !str_detect(word, "^@"), # no twitter handles
          !str_detect(word, "^#"), # no hashtags
