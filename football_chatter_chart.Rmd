@@ -25,12 +25,12 @@ theme_set(theme_light(base_family = "Montserrat ExtraBold"))
 ```
 
 ```{r}
-# raw_df <- read_csv("footall_tweets.csv") %>%
-#   select(created_at, text) %>%
-#   group_by(created_at, text) %>%
-#   filter(row_number() == 1) %>% # remove duplicate entries found in both datasets
-#   ungroup() %>%
-#   mutate(created_at = with_tz(created_at, tzone = "America/New_York"))
+twitter_df <- read_csv("footall_tweets.csv") %>%
+  select(created_at, text) %>%
+  group_by(created_at, text) %>%
+  filter(row_number() == 1) %>% # remove duplicate entries found in both datasets
+  ungroup() %>%
+  mutate(created_at = with_tz(created_at, tzone = "America/New_York"))
 ```
 
 # INPUT
@@ -39,434 +39,45 @@ theme_set(theme_light(base_family = "Montserrat ExtraBold"))
 # Game Details
 main_team <- "Green Bay Packers"
 opponent <- "Detroit Lions"
-official_game_start <- "2019-12-29 13:00:00"
-
-# Data Details
-data_source <- "Twitter" # or Reddit
-game_social_media_tag <- NULL # leave NULL if there is none
-reddit_url <- "https://www.reddit.com/r/leafs/comments/i6s5ny/game_thread_columbus_blue_jackets_332215_at/"
-min_tfidf_threshold <- 4
-number_of_tweets <- 18000
+game_date <- as.Date("2019-12-29")
+reddit_url <- "https://www.reddit.com/r/GreenBayPackers/comments/eh8tzy/week_17_game_thread_green_bay_packers_detroit/"
 ```
 
 
 ```{r social_inputs}
 # Chart Markers
 social_game_start <- "1211346430591479810"
-main_team_td <- c("1211379003526922240","1211390534838870016")
-main_team_fg <- c("1211367628964581379", "1211383791241105410", "1211397277962657800")
-opponent_td <- c("1211350966949289984", "1211364270690242566") # need robust TD for extra point/missed kick considerations
-opponent_fg <- c("1211385922207584266", "1211368389136060416")
 social_game_end <- "1211397277962657800"
 
+main_team_td <- c("1211379003526922240","1211390534838870016")
+main_team_fg <- c("1211367628964581379", "1211383791241105410", "1211397277962657800")
+
+opponent_td <- c("1211350966949289984", "1211364270690242566") 
+opponent_fg <- c("1211385922207584266", "1211368389136060416")
+
+period_markers <- c("", "", "", "")
+# need robust TD for extra point/missed kick, touchback considerations
+```
+
+```{r}
 # unwanted Words
-unwanted_words <- c("10u", "t.co", "gotta", "games", "dont", "amp", "period", "region", "https", "10a", "pas", "att", 
-                    "gonna", "ive", "les", "game", "hes",  "vai", "ml\U0001f4b5", "lieut", "vous", "weve", "ill", "theyre", "isnt", 
-                    "youre", "o55", "bla", "guys", "row", "usa", "och", "temporada", "07mar",  
-                    "playing", "play", "plays", "taking", "happen", "people", "teams", 
-                    "team", "people", "game", "looked", "stream", "10mar", "est", "amo", "des", "los", "bay", "cuz", "sur", "didnt", "doesnt", 
-                    "watch", "ssin", "está", "ppl", "#leafsnation", "watching", "fan", "youve", "nos", "mais", "vmies", "muito",
-                    "def", "times", "cat", "templeofthececi", "een", "tor", "sf","im", "el",  "ha", "thy", "pm", "usanhl", "app", "sugar", "kim",
-                    "de", "lots", "la", "offs", "hawks", "aux", "wasnt", "ela", "jogo", "ot", "na", "doesn", "i’ve", "teams",
-                    "hockey", "team", "people", "game", "dont", "looked", "stream",
-                    "ago", "aren", "questrade", "nhl com", "ins", "harvey's", "confirm", "dun", "nbsp",
-                    "they’re", "makes", "periods", "players", "watch", "lot", "didnt", "giphy.gif", "cbc", "def", "im", "media.giphy.com","tweet", "games",
-                    "story", "lander",  "doo",  "jpg", "person",  "san", "based", "vis", "don", "poxa", "ov", "tt", "cest", "ur", "gtgt",
-                     "met", "defensa")
+unwanted_words_again <- c("houston", "vegas", "knights", "dallas", "vgk", "eyebrow", "york", "wanna", "gelo", "villa", "adulto", "girls", "hoy", "missed", "alfinha", "pirates", "fink", "ok", "ko", "stars", "packerslions")
+
+# remove team-specific words like colorado, arizona, habs, etc. into the metadata
 ```
 
-```{r data_fetch}
+```{r}
+min_tfidf_threshold <- 3
 rescrape <- FALSE
-# source("data_fetch_football.R")
-
-main_team_data <- read_csv("team_metadata.csv") %>%
-  filter(team_name == main_team)
-
-opponent_team_data <- read_csv("team_metadata.csv") %>%
-  filter(team_name == opponent)
-
-game_date <- as.Date(official_game_start)
-
-team_twitter_accounts <- c(main_team_data$twitter_account, opponent_team_data$twitter_account)
-
-main_colour <- main_team_data$colour_primary
-main_secondary_colour <- main_team_data$colour_secondary
-
-opponent_colour <- opponent_team_data$colour_primary
-opponent_secondary_colour <- opponent_team_data$colour_secondary
-
-main_acronym <- main_team_data$team_acronym
-opponent_acronym <- opponent_team_data$team_acronym
-
-vip_list <- main_team_data$vip_list
-
-sport <- main_team_data$sport
-
-if (is.null(game_social_media_tag)) {
-  tweet_keywords <- main_team_data$tweet_keywords
-} else {
-  tweet_keywords <- paste(main_team_data$tweet_keywords, "OR", game_social_media_tag)
-}
-
-# make friendly formats to save my files
-opponent_file_format <- str_replace_all(tolower(opponent), " ", "-")
-main_team_file_format <- str_replace_all(tolower(main_team), " ", "-")
-
-
-tokenization <- ifelse(data_source == "Twitter", "tweets", "words")
-# social_image <-  ifelse(data_source == "Twitter", "social_images/twitter_icon_small.png", "social_images/reddit_icon_small.png")
-# social_colour <- ifelse(data_source == "Twitter", "#1DA1F2", "#FF7B4D")
-# subtitle <- ifelse(data_source == "Twitter", "Twitter Tweets", "Reddit Game Thread")
-
-# substitute your own information below
-twitter_token <- create_token(app = Sys.getenv("CC_APP"), 
-                              consumer_key = Sys.getenv("CC_CONSUMER_KEY"), 
-                              consumer_secret = Sys.getenv("CC_CONSUMER_SECRET"),
-                              access_token = Sys.getenv("CC_ACCESS_TOKEN"), 
-                              access_secret = Sys.getenv("CC_ACCESS_TOKEN_SECRET"))
-
-# get my tokens and secrets stored in my .Renviron
-user_agent_reddit <- Sys.getenv("USER_AGENT_REDDIT")
-client_id_reddit <- Sys.getenv("CLIENT_ID_REDDIT")
-client_secret_reddit <- Sys.getenv("CLIENT_SECRET_REDDIT")
-
-if (data_source == "Reddit") {
- 
-  if(file.exists(here::here(str_glue("game-threads/{sport}-gamethread-{main_team_file_format}-{opponent_file_format}-{game_date}.csv"))) == FALSE) {
-      
-  source_python("reddit_game_thread_comment_scraper.py")
-
-  raw_df <- py$topics_data %>%
-    mutate(created = ymd_hms(as_datetime(created) - hours(12), tz = "America/New_York")) %>% # adjust the timezone to EST
-    rename(text = body,
-           created_at = created) %>% # make the date & text variable consistent on reddit with twitter
-    arrange(created_at)
-  
-  write_csv(raw_df, path = here::here(str_glue("game-threads/{sport}-gamethread-{main_team_file_format}-{opponent_file_format}-{game_date}.csv")))
-  
-  } else {
-    
-  raw_df <- read_csv(here::here(str_glue("game-threads/{sport}-gamethread-{main_team_file_format}-{opponent_file_format}-{game_date}.csv")))
-  
-  }
-}
-
-if (data_source == "Twitter") {
-  
-  source("twitter_tweet_scraper.R")
-
-  write_csv(raw_df, path = here::here(str_glue("tweets/{sport}-tweets-{main_team_file_format}-{opponent_file_format}-{game_date}.csv")))
-}
-
-# get the recent 100 tweets by the leafs official account
-twitter_timeline <- get_timeline(team_twitter_accounts, n = 200, token = twitter_token) %>%
-  select(status_id, created_at, text) %>%
-  mutate(created_at = with_tz(ymd_hms(created_at), tzone = "America/New_York")) %>%
-  filter(created_at >= game_date,
-         created_at <= game_date + days(2))
-
-main_team_scoring <- twitter_timeline %>%
-  filter(status_id %in% main_team_td | status_id %in% main_team_fg) %>%
-  mutate(score_type = ifelse(status_id %in% main_team_td, "touchdown", "field goal"))
-
-opponent_scoring <-  twitter_timeline %>%
-  filter(status_id %in% opponent_td | status_id %in% opponent_fg) %>%
-  mutate(score_type = ifelse(status_id %in% opponent_td, "touchdown", "field goal"))
-
-game_start_tweet <- twitter_timeline %>%
-  filter(status_id == social_game_start) %>%
-  mutate(created_at = created_at)
-
-game_end_tweet <- twitter_timeline %>%
-  filter(status_id == social_game_end) %>%
-  mutate(created_at = created_at)
-
-game_time_df <- bind_rows(game_start_tweet, game_end_tweet)
-
-### REDUCE
-min_hour <- game_start_tweet$created_at - minutes(15) # filter 15 mins before game start
-max_hour <- game_end_tweet$created_at +  minutes(30) # an extra 30 mins after socials say game ended
-
-filtered_df <- raw_df %>%
-    filter(created_at >= min_hour,
-           created_at <= max_hour) %>%
-    mutate(interval = round_date(created_at, "2 mins"))
-
-### CALCULATE VOLUME
-interval_volume <- filtered_df %>% 
-    group_by(interval) %>%
-    summarize(thread_volume = n()) %>%
-    ungroup()
-
-### COUNT WORDS
-two_min_tokens <- filtered_df %>%
-    unnest_tokens(word, text, token = tokenization, drop = FALSE) %>%
-    filter(!word %in% unwanted_words, # drop unwanted words 
-           nchar(word) >= 2, # words must be at least 2 characters
-           !str_detect(word, "^@"), # no twitter handles
-           !str_detect(word, "^#"), # no hashtags
-           !str_detect(word, "[0-9]+"), # at least two normal letters
-           !str_detect(word, "[^\x01-\x7F]"), # no emojis 
-           !str_detect(word, "https")) %>% # no links
-    anti_join(stop_words, by = "word") %>% #
-    mutate(word = str_remove(word, "'s")) %>% # remove possesives
-  # filter(word == "defensa")
-  count(word, interval) 
-
-### TF-IDF
-important_word_df <- two_min_tokens %>%
-    bind_tf_idf(word, interval, n) %>%
-    filter(idf < 4) %>%
-    filter(n >= min_tfidf_threshold) %>% 
-    arrange(interval, desc(tf_idf)) %>%
-    distinct(interval, .keep_all = T) %>% 
-    arrange(interval)
-
-### COMBINE
-if (data_source == "Reddit") {
-  
-full_data <- interval_volume  %>%
-  full_join(important_word_df, by = "interval") %>% 
-  fill(word) %>% 
-  fill(word, .direction = "up") %>%
-  filter(interval >= game_start_tweet$created_at - minutes(15),
-         interval <= game_end_tweet$created_at + minutes(15)) %>% 
-  arrange(interval)
-
-}
-
-if (data_source == "Twitter"){
-  
-full_data <- interval_volume  %>%
-  inner_join(important_word_df, by = "interval") %>%
-  filter(interval >= min_hour,
-         interval <= max_hour) %>%
-  arrange(interval)
-
-}
-```
-
-
-```{r data_fetch}
-print(paste("Total Comments:", sum(full_data$thread_volume)))
+source("data_fetch.R")
+beepr::beep(sound = 2)
+print(paste("Total Comments:", sum(full_data$interval_volume)))
+print(paste("Max Volume:", max(full_data$interval_volume)))
 full_data
 ```
 
-# AESTHETICS
-
-## Team Logos
-
-```{r logo}
-# lookup all team image files in the repo
-files <- file.info(list.files(str_glue("{here::here()}/team_images"), 
-                              full.names = TRUE))
-
-image_paths <- data.frame(path = rownames(files))
-
-# find main team
-main_image <- image_paths %>%
-  mutate_if(is.factor, as.character) %>%
-  filter(str_detect(path, str_replace_all(main_team, " ", "_")))
-
-m <- readPNG(main_image$path)
-w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * 0.8), nrow = dim(m)[1]) 
-main_logo <- rasterGrob(w, interpolate = TRUE)
-
-# find opponent image 
-opponent_image <- image_paths %>%
-  mutate_if(is.factor, as.character) %>%
-  filter(str_detect(path, str_replace_all(opponent, " ", "_")))
-
-m <- readPNG(opponent_image$path)
-w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * 0.8), nrow = dim(m)[1]) 
-opponent_logo <- rasterGrob(w, interpolate = TRUE)
-```
-
-## Sponsor Banner (future)
-
 ```{r}
-reddit_png <- readPNG(here::here("social_images/reddit_brand.png"))
-
-reddit_brand <- rasterGrob(reddit_png, interpolate = TRUE, 
-                           width=unit(4,'cm'),
-                           x = unit(1,"npc"), y = unit(1,"npc"),
-                           hjust = 0.9, vjust= 0)
-```
-
-# SCOREBOARD
-
-```{r}
-### SCORING
-### CLEANING
-scoring_df <- main_team_scoring  %>%
-  bind_rows(opponent_scoring, .id = "team") %>%
-  mutate(team = ifelse(team == 1, "main_team", "opponent")) %>%
-  mutate(linetype = ifelse(score_type == "touchdown", 5, 2),
-         colour = ifelse(team == "main_team", main_colour, opponent_colour),
-         points = ifelse(score_type == "touchdown", 7, 3),
-         size = ifelse(score_type == "touchdown", 1.5, 0.75)) %>%
-  group_by(team) %>%
-  arrange(created_at) %>%
-  mutate(score = cumsum(points)) %>%
-  spread(team, score) %>%
-  fill(main_team, opponent)
-
-scoring_df[, 8:9][is.na(scoring_df[, 8:9])] <- 0
-
-score_sequence <- scoring_df %>%
-  mutate(main_team = ifelse(nchar(main_team) == 1, paste0("0", main_team), main_team),
-         opponent =  ifelse(nchar(opponent) == 1, paste0("0", opponent), opponent)) %>%
-  mutate(running_score = str_glue("{main_team} - {opponent}"))
-
-### HIGHLIGHT WHEN GOALS ARE SCORED
-running_game_score_df <- score_sequence %>%
-  rename(interval = created_at) %>%
-  bind_rows(data.frame(interval = .$interval + minutes(2), # iser
-                       running_score = .$running_score)) %>%
-  mutate(board_size = 12) %>%
-  full_join(full_data, by = "interval") %>%
-  arrange(interval) %>%
-  mutate(board_size = ifelse(is.na(running_score), 10, board_size)) %>%
-  mutate(board_size = ifelse(interval %in% round_date(scoring_df$created_at + minutes(1), "2 minutes"), 12, board_size)) %>%
-  arrange(interval) %>%
-  fill(running_score, .direction = "down") %>%
-  mutate(running_score = ifelse(is.na(running_score), "00 - 00", running_score)) %>%
-  mutate(board_size = ifelse(running_score == "00 - 00", 10, board_size)) %>%
-  select(interval, running_score, board_size)
-```
-
-```{r}
-final_score_text <- running_game_score_df %>%
-  mutate(text = ifelse(interval >= game_end_tweet$created_at, "Final", ""))
-
-team_scoring_markers <- scoring_df %>%
-  select(created_at, score_type, colour) %>%
-  mutate(team_acronym = ifelse(colour == "#203731",  "GB", "DET"),
-         team_bg_fill =  ifelse(colour == "#203731",  main_colour, opponent_colour),
-         team_text_colour = ifelse(colour == "#203731",  main_secondary_colour, opponent_secondary_colour),
-         y_location = ifelse(colour == "#203731",  10000, 10)) %>%
-  rename(interval = created_at) %>%
-  inner_join(running_game_score_df, by = "interval") %>%
-  rename(created_at = interval)
-```
-
-```{r axis_helpers}
-time_spacer <- as.numeric((time_diff <- (game_end_tweet$created_at - game_start_tweet$created_at) / 9) * 60 * 60)
-
-custom_labels <-c("Game Start", "", "", "", "", "", "", "", "", "Game End")
-```
-
-# PLOT
-
-```{r plot}
-base_plot <- full_data %>%
-  ggplot(aes(x = interval, y = thread_volume)) +
-  ### PRE/POST GAME LABELS
-  annotate("text", x = ymd_hms(game_start_tweet$created_at, tz = "America/New_York") - 1250, 
-           y = 12, size = 3,  label = "Pre-Game", colour = "white", family = "Inter Medium") +
-  annotate("text", x = ymd_hms(game_end_tweet$created_at, tz = "America/New_York") + 1350, 
-           y = 12, size = 3, label = "Post-Game", colour = "white", family = "Inter Medium")  +
-  annotate("text", x = ymd_hms(game_start_tweet$created_at, tz = "America/New_York") - 1250, 
-           y = 9000, size = 3,  label = "Pre-Game", colour = "white", family = "Inter Medium") +
-  annotate("text", x = ymd_hms(game_end_tweet$created_at, tz = "America/New_York") + 1350, 
-           y = 9000, size = 3, label = "Post-Game", colour = "white", family = "Inter Medium") +
-
-  ### GAME START/END MARKERS
-  geom_vline(data = game_time_df, 
-             aes(xintercept = created_at),
-             colour = "white", size = 1.25) +
-  
-  ### SCORING MARKERS
-  geom_vline(data = scoring_df, 
-             aes(xintercept = created_at,
-                 linetype = I(linetype),
-                 colour = I(colour),
-                 size = I(size))) +
-  
-  ### SCOREBOARD
-  geom_shadowtext(data = running_game_score_df,
-            aes(x = mean(c(game_start_tweet$created_at, game_end_tweet$created_at)),
-                y = 10000,
-                label = running_score, 
-                size = I(board_size)), 
-            family = "Quantico", show.legend = FALSE, vjust = -0.7, bg.colour = "#203731") +
-  
- # geom_text(data = final_score_text,
- #        aes(x = mean(c(game_start_tweet$created_at, game_end_tweet$created_at)),
- #             y = 9000,
- #             label = text), 
- #         size = 5, alpha = 0.7, colour = "white", family = "Quantico", show.legend = FALSE) +
-  
-  ### LINE
-  geom_line(color = "#FFB612", size = 2) +
-  
-  ### LINE SOCIAL ICON
-  geom_image(aes(image = "emoji/american-football.png")) +
-  
-  ### TEAM LABELS
-  geom_label(data = team_scoring_markers, 
-             aes(x = created_at, 
-                 y = I(y_location),
-                 colour = I(team_text_colour),
-                 fill = I(team_bg_fill),
-                 label = team_acronym),
-             label.padding = unit(0.2, "lines"), 
-             label.r = unit(0.1, "lines"),
-             label.size = 0.5, family = "Oswald") +
-  
-  ### WORDS
-  geom_shadowtext(aes(label = word), 
-            size = 10, colour = main_colour, family = "Inter SemiBold", vjust = -0.5, bg.colour = "white") + 
-  
-  ### SCALES
-  scale_x_datetime(breaks = seq(as.POSIXct(ymd_hms(game_start_tweet$created_at, tz = "America/New_York")), as.POSIXct(game_end_tweet$created_at), time_spacer),
-                   #limits = as.POSIXct(c(ymd_hms(official_game_start, tz = "America/New_York"), game_end_tweet$created_at)), 
-                   labels = custom_labels) +
-  scale_y_log10(labels = scales::comma_format()) +
-  scale_alpha(range = c(0.9, 0.7)) + 
-  expand_limits(y = 10:10000, x = as.POSIXct(c(ymd_hms(official_game_start, tz = "America/New_York") - 1800, game_end_tweet$created_at + 1800))) +
-  coord_cartesian(clip = "off") +
-
-  ### TITLE
-  labs(title = str_glue("<b style='color:white;font-size:38px'>NFL</b>
-                        <b style='color:#003a70;font-size:24px'> 2020–21 SEASON</b>
-                        <br>
-                        <b style='color:white;font-size:31px'>CHATTER CHARTS</b>
-                        <br>
-                        <b style='color:white;font-size:12px;font-family:Roboto Mono'>Fan-fueled Football Recaps</b>"),
-       x= "",
-       y = "") +
-  
-  ### OTHER
-  theme(text = element_text(face = "bold", lineheight = 2),
-        panel.grid.major.y = element_blank(),
-        panel.grid.minor.y = element_blank(),
-        panel.grid.minor.x = element_blank(),
-        panel.border = element_blank(),
-        panel.background = element_rect(fill = NA, colour = "white", size = 2),
-        panel.ontop = FALSE,
-        plot.background = element_rect(fill = "#4a7f3b", colour = NA),
-        axis.title.y = element_markdown(size = 8, colour = grey(0.2), lineheight = 1),
-        axis.text = element_text(colour = "white"),
-        axis.text.x = element_blank(),
-        axis.ticks = element_blank(),
-        plot.title = element_markdown(lineheight = 0.8, vjust = -2, #linetype = 1, 
-                                      family = "Montserrat ExtraBold", #fill = "white", colour = "#003a70", 
-                                      padding = margin(0,10,5,-15), margin = margin(0,0,30,0)),
-        plot.subtitle = element_markdown(size = 8, family = "Raleway", colour = "black", lineheight = 0.5),
-        plot.margin = margin(0.5, 1.5, 0.1, 0.5, "cm"))
-```
-
-```{r create_animation}
-### ANIMATE
-animated_plot <- base_plot +
-  transition_reveal(interval) + # follow the interval
-  ease_aes("linear") # fixed speed
-
-options(gganimate.dev_args = list(height = 4, width = 7.2, units = 'in', type = "cairo", res = 144))
-
-animate(plot = animated_plot,
-        fps = 25, duration = 45,
-        type = "cairo",
-        renderer = av_renderer(str_glue("animations/football-{data_source}-{main_team_file_format}-{opponent_file_format}-{game_date}.mp4")))
+unnested_df %>%
+  filter(word == "quien") %>%
+  select(text, created_at)
 ```
