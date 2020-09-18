@@ -9,8 +9,8 @@ make_base_plot <- function() {
   #                           hjust = 0.9, vjust= 0)
   
   
-  # bg_img <- readPNG(here::here("backgrounds/hockey_bg_1.png"))
-  # background_img <- rasterGrob(bg_img, interpolate = TRUE)
+  bg_img <- png::readPNG(here::here("backgrounds/hockey_bg.png"))
+  background_img <- grid::rasterGrob(bg_img, interpolate = TRUE)
   
   
   
@@ -27,7 +27,7 @@ make_base_plot <- function() {
     filter(str_detect(path, str_replace_all(main_team, " ", "_")))
   
   m <- png::readPNG(main_image$path)
-  w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * 0.7), nrow = dim(m)[1]) 
+  w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * 0.9), nrow = dim(m)[1]) 
   main_logo <- grid::rasterGrob(w, interpolate = TRUE)
   
   ## OPPONENT
@@ -36,7 +36,7 @@ make_base_plot <- function() {
     filter(str_detect(path, str_replace_all(opponent, " ", "_")))
   
   m <- png::readPNG(opponent_image$path)
-  w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * 0.7), nrow = dim(m)[1]) 
+  w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * 0.9), nrow = dim(m)[1]) 
   opponent_logo <- grid::rasterGrob(w, interpolate = TRUE)
   
   
@@ -45,15 +45,17 @@ make_base_plot <- function() {
     # filter(interval < "2020-09-03 18:58:00") %>%
     ggplot(aes(x = interval, y = interval_volume)) +
     
+    ggimage::geom_bgimage(here::here("backgrounds/hockey_bg.png")) +
+  
     #### Ice
-    #annotation_custom(grob = background_img, 
-    #                  xmin = -Inf,  
-    #                  xmax = Inf, 
-    #                  ymin = -Inf, ymax = Inf) +
-    
+   #annotation_custom(grob = background_img, 
+   #                  xmin = -Inf,  
+   #                  xmax = Inf, 
+   #                  ymin = -Inf, ymax = Inf) +
+   
     geom_rect(data = intermission_df, 
               aes(NULL, NULL, xmin=start, xmax=end), ymin=-Inf, ymax=Inf, 
-              fill = 'grey', alpha = 0.2) +
+              fill = 'grey', alpha = 0.3) +
     
     ### BG LOGOS
     annotation_custom(main_logo, 
